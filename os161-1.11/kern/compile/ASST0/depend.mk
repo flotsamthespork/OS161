@@ -361,6 +361,9 @@ fstest.o: ../../test/fstest.c ../../include/types.h machine/types.h \
   ../../include/synch.h ../../include/fs.h ../../include/vnode.h \
   ../../include/vfs.h ../../include/uio.h ../../include/test.h \
   ../../include/thread.h machine/pcb.h
+hello.o: ../../main/hello.c ../../include/types.h machine/types.h \
+  ../../include/kern/types.h machine/ktypes.h ../../include/lib.h \
+  machine/setjmp.h
 uw-vmstats.o: ../../vm/uw-vmstats.c opt-A3.h
 autoconf.o: ../../compile/ASST0/autoconf.c ../../include/types.h \
   machine/types.h ../../include/kern/types.h machine/ktypes.h \

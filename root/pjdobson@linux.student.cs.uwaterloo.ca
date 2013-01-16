@@ -1,0 +1,100 @@
+Script started on Tue 15 Jan 2013 07:21:31 PM EST
+]0;patrick@patrick-VirtualBox: ~/cs350-os161/rootpatrick@patrick-VirtualBox:~/cs350-os161/root$ cd ~/cs350-os161/os161-1.11/l[Kkern/ main/
+]0;patrick@patrick-VirtualBox: ~/cs350-os161/os161-1.11/kern/mainpatrick@patrick-VirtualBox:~/cs350-os161/os161-1.11/kern/main$ git add hello.c
+]0;patrick@patrick-VirtualBox: ~/cs350-os161/os161-1.11/kern/mainpatrick@patrick-VirtualBox:~/cs350-os161/os161-1.11/kern/main$ git diff main.c
+[?1h=diff --git a/os161-1.11/kern/main/main.c b/os161-1.11/kern/main/main.c[m
+index a19b0f2..d7feddb 100644[m
+--- a/os161-1.11/kern/main/main.c[m
++++ b/os161-1.11/kern/main/main.c[m
+@@ -17,6 +17,8 @@[m
+ #include <syscall.h>[m
+ #include <version.h>[m
+ [m
++#include <opt-A0.h>[m
++[m
+ /*[m
+  * These two pieces of data are maintained by the makefiles and build system.[m
+  * buildconfig is the name of the config file the kernel was configured with.[m
+@@ -28,6 +30,9 @@[m
+  */[m
+ extern const int buildversion;[m
+ extern const char buildconfig[];[m
++#if OPT_A0[m
++extern void hello();[m
++#endif[m
+ [m
+ /*[m
+  * Copyright message for the OS/161 base code.[m
+@@ -74,6 +79,9 @@ boot(void)[m
+        scheduler_bootstrap();[m
+        thread_bootstrap();[m
+        vfs_bootstrap();[m
+:[K[K[K:[K[K:[K[K[7mNo next tag  (press RETURN)[27m[28;1H[K[K:[K[K+#if OPT_A0[m
+:[K[K [KESCESC[K^?^?[K:[K[K:[K[K[?1l>]0;patrick@patrick-VirtualBox: ~/cs350-os161/os161-1.11/kern/mainpatrick@patrick-VirtualBox:~/cs350-os161/os161-1.11/kern/main$ git commit "add[K[K[K[K-, "ad d[K[A[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[K
+[K[A[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[K[K[K[K, "ad de[K[K[A[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[K
+[K[A[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[K[K[K[K[K[K -m "ad ded hello function to te [K[Khe boot sequence"
+[master 6ab052b] added hello function to the boot sequence
+ Committer: Patrick Dobson <patrick@patrick-VirtualBox.(none)>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly:
+
+    git config --global user.name "Your Name"
+    git config --global user.email you@example.com
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 1 file changed, 6 insertions(+)
+ create mode 100644 os161-1.11/kern/main/hello.c
+]0;patrick@patrick-VirtualBox: ~/cs350-os161/os161-1.11/kern/mainpatrick@patrick-VirtualBox:~/cs350-os161/os161-1.11/kern/main$ cd ../compile/[K[K[K[Kile/
+]0;patrick@patrick-VirtualBox: ~/cs350-os161/os161-1.11/kern/compilepatrick@patrick-VirtualBox:~/cs350-os161/os161-1.11/kern/compile$ cd Ass[K[KSST0/
+]0;patrick@patrick-VirtualBox: ~/cs350-os161/os161-1.11/kern/compile/ASST0patrick@patrick-VirtualBox:~/cs350-os161/os161-1.11/kern/compile/ASST0$ make dep end
+cs350-gcc   -mno-abicalls -fno-pic -Wall -W -Wwrite-strings -g -nostdinc -I../../include -I../../dev -I.  -ffreestanding -D_KERNEL -G 0 -M ../../dev/generic/rtclock.c ../../dev/lamebus/lrandom.c ../../dev/generic/pseudorand.c ../../dev/lamebus/lamebus.c ../../dev/lamebus/lser.c ../../dev/generic/beep.c ../../dev/lamebus/ltimer.c ../../dev/generic/console.c ../../dev/lamebus/emu.c ../../dev/generic/random.c ../../dev/lamebus/lhd.c ../../dev/lamebus/ltrace.c ../../dev/lamebus/beep_ltimer.c ../../dev/lamebus/lrandom_att.c ../../dev/lamebus/ltimer_att.c ../../dev/lamebus/random_lrandom.c ../../dev/lamebus/ltrace_att.c ../../dev/lamebus/emu_att.c ../../dev/lamebus/rtclock_ltimer.c ../../dev/generic/pseudorand_att.c ../../dev/lamebus/lhd_att.c ../../dev/lamebus/con_lser.c ../../dev/lamebus/lser_att.c ../../arch/mips/mips/dumbvm.c ../../fs/sfs/sfs_fs.c ../../fs/sfs/sfs_vnode.c ../../fs/sfs/sfs_io.c ../../arch/mips/mips/cache_mips1.S ../../arch/mips/mips/exception.S ../../arch/mips/mips/lamebus_mips.c ../../arch/mips/mips/interrupt.c ../../arch/mips/mips/pcb.c ../../arch/mips/mips/ram.c ../../arch/mips/mips/spl.c ../../arch/mips/mips/start.S ../../arch/mips/mips/switch.S ../../arch/mips/mips/syscall.c ../../arch/mips/mips/threadstart.S ../../arch/mips/mips/trap.c ../../arch/mips/mips/tlb_mips1.S ../../../lib/libc/mips-setjmp.S ../../lib/copyinout.c ../../lib/array.c ../../lib/bitmap.c ../../lib/queue.c ../../lib/kheap.c ../../lib/kprintf.c ../../lib/kgets.c ../../lib/misc.c ../../lib/ntoh.c ../../../lib/libc/__printf.c ../../../lib/libc/snprintf.c ../../../lib/libc/atoi.c ../../../lib/libc/bzero.c ../../../lib/libc/memcpy.c ../../../lib/libc/memmove.c ../../../lib/libc/strcat.c ../../../lib/libc/strchr.c ../../../lib/libc/strcmp.c ../../../lib/libc/strcpy.c ../../../lib/libc/strlen.c ../../../lib/libc/strrchr.c ../../../lib/libc/strtok_r.c ../../dev/init.c ../../fs/vfs/device.c ../../fs/vfs/vfscwd.c ../../fs/vfs/vfslist.c ../../fs/vfs/vfslookup.c ../../fs/vfs/vfspath.c ../../fs/vfs/vnode.c ../../fs/vfs/devnull.c ../../thread/hardclock.c ../../thread/synch.c ../../thread/scheduler.c ../../thread/thread.c ../../main/main.c ../../main/menu.c ../../userprog/loadelf.c ../../userprog/runprogram.c ../../userprog/uio.c ../../test/arraytest.c ../../test/bitmaptest.c ../../test/queuetest.c ../../test/threadtest.c ../../test/tt3.c ../../test/synchtest.c ../../test/malloctest.c ../../test/fstest.c ../../main/hello.c ../../vm/uw-vmstats.c ../../compile/ASST0/autoconf.c > depend.mk
+]0;patrick@patrick-VirtualBox: ~/cs350-os161/os161-1.11/kern/compile/ASST0patrick@patrick-VirtualBox:~/cs350-os161/os161-1.11/kern/compile/ASST0$ make
+cs350-gcc   -mno-abicalls -fno-pic -Wall -W -Wwrite-strings -g -nostdinc -I../../include -I../../dev -I.  -ffreestanding -D_KERNEL -G 0 -c ../../main/main.c
+../../main/main.c:1: error: expected ‘=’, ‘,’, ‘;’, ‘asm’ or ‘__attribute__’ before ‘sequence’
+../../main/main.c: In function ‘sys_reboot’:
+../../main/main.c:33: error: ‘RB_REBOOT’ undeclared (first use in this function)
+../../main/main.c:33: error: (Each undeclared identifier is reported only once
+../../main/main.c:33: error: for each function it appears in.)
+../../main/main.c:34: error: ‘RB_HALT’ undeclared (first use in this function)
+../../main/main.c:35: error: ‘RB_POWEROFF’ undeclared (first use in this function)
+../../main/main.c:38: error: ‘EINVAL’ undeclared (first use in this function)
+../../main/main.c:41: warning: implicit declaration of function ‘shutdown’
+../../main/main.c:45: warning: implicit declaration of function ‘kprintf’
+../../main/main.c:46: warning: implicit declaration of function ‘md_halt’
+../../main/main.c:50: warning: implicit declaration of function ‘md_reboot’
+../../main/main.c:54: warning: implicit declaration of function ‘md_poweroff’
+../../main/main.c:58: warning: implicit declaration of function ‘panic’
+../../main/main.c: In function ‘kmain’:
+../../main/main.c:69: warning: implicit declaration of function ‘boot’
+../../main/main.c:71: warning: implicit declaration of function ‘menu’
+make: *** [main.o] Error 1
+]0;patrick@patrick-VirtualBox: ~/cs350-os161/os161-1.11/kern/compile/ASST0patrick@patrick-VirtualBox:~/cs350-os161/os161-1.11/kern/compile/ASST0$ cd ../ma [A[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[K
+[K[A[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[K[K/.. /main/
+]0;patrick@patrick-VirtualBox: ~/cs350-os161/os161-1.11/kern/mainpatrick@patrick-VirtualBox:~/cs350-os161/os161-1.11/kern/main$ rm main.c 
+]0;patrick@patrick-VirtualBox: ~/cs350-os161/os161-1.11/kern/mainpatrick@patrick-VirtualBox:~/cs350-os161/os161-1.11/kern/main$ git checki[Kout main .c
+]0;patrick@patrick-VirtualBox: ~/cs350-os161/os161-1.11/kern/mainpatrick@patrick-VirtualBox:~/cs350-os161/os161-1.11/kern/main$ cd ../compile/ASSTT0/
+]0;patrick@patrick-VirtualBox: ~/cs350-os161/os161-1.11/kern/compile/ASST0patrick@patrick-VirtualBox:~/cs350-os161/os161-1.11/kern/compile/ASST0$ cd ../commpile/ASST0/[A]0;patrick@patrick-VirtualBox: ~/cs350-os161/os161-1.11/kern/compile/ASST0patrick@patrick-VirtualBox:~/cs350-os161/os161-1.11/kern/compile/ASST0$ [K
+[K[A[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[Cmake dep end
+cs350-gcc   -mno-abicalls -fno-pic -Wall -W -Wwrite-strings -g -nostdinc -I../../include -I../../dev -I.  -ffreestanding -D_KERNEL -G 0 -M ../../dev/generic/rtclock.c ../../dev/lamebus/lrandom.c ../../dev/generic/pseudorand.c ../../dev/lamebus/lamebus.c ../../dev/lamebus/lser.c ../../dev/generic/beep.c ../../dev/lamebus/ltimer.c ../../dev/generic/console.c ../../dev/lamebus/emu.c ../../dev/generic/random.c ../../dev/lamebus/lhd.c ../../dev/lamebus/ltrace.c ../../dev/lamebus/beep_ltimer.c ../../dev/lamebus/lrandom_att.c ../../dev/lamebus/ltimer_att.c ../../dev/lamebus/random_lrandom.c ../../dev/lamebus/ltrace_att.c ../../dev/lamebus/emu_att.c ../../dev/lamebus/rtclock_ltimer.c ../../dev/generic/pseudorand_att.c ../../dev/lamebus/lhd_att.c ../../dev/lamebus/con_lser.c ../../dev/lamebus/lser_att.c ../../arch/mips/mips/dumbvm.c ../../fs/sfs/sfs_fs.c ../../fs/sfs/sfs_vnode.c ../../fs/sfs/sfs_io.c ../../arch/mips/mips/cache_mips1.S ../../arch/mips/mips/exception.S ../../arch/mips/mips/lamebus_mips.c ../../arch/mips/mips/interrupt.c ../../arch/mips/mips/pcb.c ../../arch/mips/mips/ram.c ../../arch/mips/mips/spl.c ../../arch/mips/mips/start.S ../../arch/mips/mips/switch.S ../../arch/mips/mips/syscall.c ../../arch/mips/mips/threadstart.S ../../arch/mips/mips/trap.c ../../arch/mips/mips/tlb_mips1.S ../../../lib/libc/mips-setjmp.S ../../lib/copyinout.c ../../lib/array.c ../../lib/bitmap.c ../../lib/queue.c ../../lib/kheap.c ../../lib/kprintf.c ../../lib/kgets.c ../../lib/misc.c ../../lib/ntoh.c ../../../lib/libc/__printf.c ../../../lib/libc/snprintf.c ../../../lib/libc/atoi.c ../../../lib/libc/bzero.c ../../../lib/libc/memcpy.c ../../../lib/libc/memmove.c ../../../lib/libc/strcat.c ../../../lib/libc/strchr.c ../../../lib/libc/strcmp.c ../../../lib/libc/strcpy.c ../../../lib/libc/strlen.c ../../../lib/libc/strrchr.c ../../../lib/libc/strtok_r.c ../../dev/init.c ../../fs/vfs/device.c ../../fs/vfs/vfscwd.c ../../fs/vfs/vfslist.c ../../fs/vfs/vfslookup.c ../../fs/vfs/vfspath.c ../../fs/vfs/vnode.c ../../fs/vfs/devnull.c ../../thread/hardclock.c ../../thread/synch.c ../../thread/scheduler.c ../../thread/thread.c ../../main/main.c ../../main/menu.c ../../userprog/loadelf.c ../../userprog/runprogram.c ../../userprog/uio.c ../../test/arraytest.c ../../test/bitmaptest.c ../../test/queuetest.c ../../test/threadtest.c ../../test/tt3.c ../../test/synchtest.c ../../test/malloctest.c ../../test/fstest.c ../../main/hello.c ../../vm/uw-vmstats.c ../../compile/ASST0/autoconf.c > depend.mk
+]0;patrick@patrick-VirtualBox: ~/cs350-os161/os161-1.11/kern/compile/ASST0patrick@patrick-VirtualBox:~/cs350-os161/os161-1.11/kern/compile/ASST0$ make
+cs350-gcc   -mno-abicalls -fno-pic -Wall -W -Wwrite-strings -g -nostdinc -I../../include -I../../dev -I.  -ffreestanding -D_KERNEL -G 0 -c ../../main/main.c
+../../conf/newvers.sh ASST0
+*** This is ASST0 build #5 ***
+cs350-gcc   -mno-abicalls -fno-pic -Wall -W -Wwrite-strings -g -nostdinc -I../../include -I../../dev -I.  -ffreestanding -D_KERNEL -G 0 -c vers.c
+cs350-ld   -nostdlib -Ttext 0x80001000 -T ../../arch/mips/conf/ldscript -G 0 rtclock.o lrandom.o pseudorand.o lamebus.o lser.o beep.o ltimer.o console.o emu.o random.o lhd.o ltrace.o beep_ltimer.o lrandom_att.o ltimer_att.o random_lrandom.o ltrace_att.o emu_att.o rtclock_ltimer.o pseudorand_att.o lhd_att.o con_lser.o lser_att.o dumbvm.o sfs_fs.o sfs_vnode.o sfs_io.o cache_mips1.o exception.o lamebus_mips.o interrupt.o pcb.o ram.o spl.o start.o switch.o syscall.o threadstart.o trap.o tlb_mips1.o mips-setjmp.o copyinout.o array.o bitmap.o queue.o kheap.o kprintf.o kgets.o misc.o ntoh.o __printf.o snprintf.o atoi.o bzero.o memcpy.o memmove.o strcat.o strchr.o strcmp.o strcpy.o strlen.o strrchr.o strtok_r.o init.o device.o vfscwd.o vfslist.o vfslookup.o vfspath.o vnode.o devnull.o hardclock.o synch.o scheduler.o thread.o main.o menu.o loadelf.o runprogram.o uio.o arraytest.o bitmaptest.o queuetest.o threadtest.o tt3.o synchtest.o malloctest.o fstest.o hello.o uw-vmstats.o autoconf.o vers.o -o kernel
+cs350-size kernel
+   text	   data	    bss	    dec	    hex	filename
+ 161064	    448	   7668	 169180	  294dc	kernel
+]0;patrick@patrick-VirtualBox: ~/cs350-os161/os161-1.11/kern/compile/ASST0patrick@patrick-VirtualBox:~/cs350-os161/os161-1.11/kern/compile/ASST0$ make ins tall
+[ -d /home/patrick/cs350/root ] || mkdir /home/patrick/cs350/root
+cp kernel /home/patrick/cs350/root/kernel-ASST0
+rm -f /home/patrick/cs350/root/kernel
+ln -s kernel-ASST0 /home/patrick/cs350/root/kernel
+]0;patrick@patrick-VirtualBox: ~/cs350-os161/os161-1.11/kern/compile/ASST0patrick@patrick-VirtualBox:~/cs350-os161/os161-1.11/kern/compile/ASST0$ exit
+exit
+
+Script done on Tue 15 Jan 2013 07:25:29 PM EST

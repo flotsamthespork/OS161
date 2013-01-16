@@ -439,6 +439,11 @@ fstest.o: ${S}/test/fstest.c
 SRCS+=${S}/test/fstest.c
 OBJS+=fstest.o
 
+hello.o: ${S}/main/hello.c
+	${COMPILE.c} ${S}/main/hello.c
+SRCS+=${S}/main/hello.c
+OBJS+=hello.o
+
 uw-vmstats.o: ${S}/vm/uw-vmstats.c
 	${COMPILE.c} ${S}/vm/uw-vmstats.c
 SRCS+=${S}/vm/uw-vmstats.c

@@ -454,6 +454,7 @@ optfile net	test/nettest.c
 
 # UW options for different assignments
 defoption A0
+file		main/hello.c
 defoption A1
 defoption A2
 # UW For A3 use the stats tracking code provided
