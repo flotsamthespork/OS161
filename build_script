@@ -1,0 +1,35 @@
+#!/bin/bash
+
+RUN=0
+BUILD=1
+ASST=""
+
+for VAR in "$@"
+do
+	if [[ "$VAR" = "-r" ]]; then
+		RUN=1
+	elif [[ "$VAR" = "-s" ]]; then
+		BUILD=0
+	else
+		ASST=$VAR
+	fi
+done
+
+if [[ -z "$ASST" ]]; then
+	echo "Expects assignment number as parameter."
+else
+	if [[ "$BUILD" -eq 1 ]]; then
+		echo "*** BUILDING ASST$ASST ***"
+		(cd os161-1.11/kern/conf && ./config ASST$ASST)
+		(cd os161-1.11/kern/compile/ASST$ASST && make clean)
+		(cd os161-1.11/kern/compile/ASST$ASST && make depend)
+		(cd os161-1.11/kern/compile/ASST$ASST && make)
+		cp os161-1.11/kern/compile/ASST$ASST/kernel root/kernel-ASST$ASST
+		rm root/kernel
+		(cd root && ln -s kernel-ASST$ASST kernel)
+	fi
+
+	if [[ "$RUN" -eq 1 ]]; then
+		(cd root && sys161 kernel)
+	fi
+fi

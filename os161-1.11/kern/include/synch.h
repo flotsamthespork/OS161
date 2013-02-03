@@ -2,6 +2,8 @@
  * Header file for synchronization primitives.
  */
 
+#include "opt-A1.h"
+
 #ifndef _SYNCH_H_
 #define _SYNCH_H_
 
@@ -49,9 +51,12 @@ void              sem_destroy(struct semaphore *);
  */
 
 struct lock {
+
 	char *name;
-	// add what you need here
-	// (don't forget to mark things volatile as needed)
+#if OPT_A1
+	int isLocked;
+	struct thread *thread;
+#endif
 };
 
 struct lock *lock_create(const char *name);
@@ -89,8 +94,9 @@ void         lock_destroy(struct lock *);
 
 struct cv {
 	char *name;
-	// add what you need here
-	// (don't forget to mark things volatile as needed)
+#if OPT_A1
+	struct queue *queue;
+#endif
 };
 
 struct cv *cv_create(const char *name);

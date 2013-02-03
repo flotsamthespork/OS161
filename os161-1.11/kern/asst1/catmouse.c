@@ -22,6 +22,8 @@
 #include <thread.h>
 #include <synch.h>
 
+#include <queue.h>
+
 /*
  * 
  * cat,mouse,bowl simulation functions defined in bowls.c
@@ -46,6 +48,36 @@ extern void cat_eat(unsigned int bowlnumber);
 extern void mouse_eat(unsigned int bowlnumber);
 extern void cat_sleep(void);
 extern void mouse_sleep(void);
+
+
+void initialize_manager(void);
+void cleanup_manager(void);
+void swap_turns();
+void free_bowl(unsigned int bowlnumber);
+int get_bowl(unsigned int type);
+void leave_bowl(unsigned int bowlnumber);
+
+// Constants for each type of animal
+const unsigned int TYPE_NULL = 0;
+const unsigned int TYPE_CAT = 1;
+const unsigned int TYPE_MOUSE = 2;
+
+
+volatile unsigned int currentTurn;
+volatile unsigned int isSwapping;
+volatile unsigned int numServed;
+volatile unsigned int numEating;
+volatile unsigned int numWaitingForBowl;
+volatile unsigned int numWaitingForTurn;
+
+// Locks multiple animals from trying to find
+// a bowl at the same time
+struct lock *bowlLock;
+
+struct cv *bowlCv;
+
+struct queue *bowlQueue;
+
 
 /*
  *
@@ -132,8 +164,9 @@ cat_simulation(void * unusedpointer,
      * the rules when it eats */
 
     /* legal bowl numbers range from 1 to NumBowls */
-    bowl = ((unsigned int)random() % NumBowls) + 1;
+    bowl = get_bowl(TYPE_CAT);
     cat_eat(bowl);
+    leave_bowl(bowl);
 
   }
 
@@ -193,8 +226,9 @@ mouse_simulation(void * unusedpointer,
      * the rules when it eats */
 
     /* legal bowl numbers range from 1 to NumBowls */
-    bowl = ((unsigned int)random() % NumBowls) + 1;
+    bowl = get_bowl(TYPE_MOUSE);
     mouse_eat(bowl);
+    leave_bowl(bowl);
 
   }
 
@@ -280,6 +314,8 @@ catmouse(int nargs,
     panic("catmouse: error initializing bowls.\n");
   }
 
+  initialize_manager();
+
   /*
    * Start NumCats cat_simulation() threads.
    */
@@ -312,9 +348,128 @@ catmouse(int nargs,
   /* clean up resources used for tracking bowl use */
   cleanup_bowls();
 
+  cleanup_manager();
+
   return 0;
 }
 
 /*
  * End of catmouse.c
  */
+
+
+void initialize_manager() {
+	int i;
+	currentTurn = TYPE_NULL;
+
+	isSwapping = 0;
+	numServed = 0;
+	numEating = 0;
+	numWaitingForBowl = 0;
+	numWaitingForTurn = 0;
+
+	bowlLock = lock_create("bowl_lock");
+	assert(bowlLock != NULL);
+
+	bowlCv = cv_create("bowl_cv");
+	assert(bowlCv != NULL);
+
+	bowlQueue = q_create(NumBowls);
+	assert(bowlQueue != NULL);
+
+	for (i = 1; i <= NumBowls; ++i) {
+		free_bowl(i);
+	}
+}
+
+void cleanup_manager() {
+	lock_destroy(bowlLock);
+	cv_destroy(bowlCv);
+	while (!q_empty(bowlQueue)) {
+		kfree(q_remhead(bowlQueue));
+	}
+	q_destroy(bowlQueue);
+}
+
+
+void swap_turns() {
+	int temp = numWaitingForBowl;
+	numWaitingForBowl = numWaitingForTurn;
+	numWaitingForTurn = temp;
+	numServed = 0;
+	isSwapping = 1;
+
+	if (currentTurn == TYPE_MOUSE) {
+		currentTurn = TYPE_CAT;
+	}
+	else {
+		currentTurn = TYPE_MOUSE;
+	}
+}
+
+
+int get_bowl(const unsigned int type) {
+	int *bowlnumberptr;
+	int bowlnumber;
+	lock_acquire(bowlLock);
+
+	if (currentTurn == TYPE_NULL) {
+		currentTurn = type;
+	}
+	
+	if (currentTurn == type) {
+		numWaitingForBowl += 1;
+	}
+	else {
+		numWaitingForTurn += 1;
+	}
+
+	while (isSwapping || currentTurn != type || q_empty(bowlQueue)) {
+		cv_wait(bowlCv, bowlLock);
+
+		if (!isSwapping && numWaitingForTurn > numWaitingForBowl ||
+				numServed > 2 * NumBowls) {
+			swap_turns();
+		}
+
+		if (numEating == 0) {
+			isSwapping = 0;
+		}
+	}
+
+	// Get the next queued bowl number and frees the pointer
+	// to the value in it
+	bowlnumberptr = (int*)q_remhead(bowlQueue);
+	bowlnumber = *bowlnumberptr;
+	kfree(bowlnumberptr);
+
+	numWaitingForBowl -= 1;
+	numEating += 1;
+
+	lock_release(bowlLock);
+
+	return bowlnumber;
+}
+
+
+void free_bowl(const unsigned int bowlnumber) {
+	int *ptr = kmalloc(sizeof(int));
+	*ptr = bowlnumber;
+	q_addtail(bowlQueue, ptr);
+
+	cv_broadcast(bowlCv, bowlLock);
+}
+
+
+void leave_bowl(const unsigned int bowlnumber) {
+
+	numServed += 1;
+	numEating -= 1;
+
+	if (numWaitingForTurn == 0) {
+		numServed = 0;
+	}
+
+	free_bowl(bowlnumber);
+}
+
