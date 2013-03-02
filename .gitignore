@@ -1,7 +1,7 @@
 # OS161 generated files
 depend.mk
 
-os161-1.11/kern/compile
+os161-1.11/kern/compile/*
 root/kernel*
 
 # Compiled Source
