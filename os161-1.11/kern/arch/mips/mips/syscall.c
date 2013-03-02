@@ -7,6 +7,7 @@
 #include <kern/callno.h>
 #include <syscall.h>
 
+#include "opt-A2.h"
 
 /*
  * System call handler.
@@ -69,15 +70,53 @@ mips_syscall(struct trapframe *tf)
 
 	switch (callno) {
 	    case SYS_reboot:
-		err = sys_reboot(tf->tf_a0);
-		break;
+			err = sys_reboot(tf->tf_a0);
+			break;
 
-	    /* Add stuff here */
+#if OPT_A2
+
+	    case SYS_open:
+	    	err = sys_open(tf->tf_a0, tf->tf_a1, tf->tf_a2);
+	    	break;
+
+	    case SYS_close:
+	    	err = sys_close(tf->tf_a0);
+	    	break;
+
+	    case SYS_read:
+	    	err = sys_read(tf->tf_a0, tf->tf_a1, tf->tf_a2);
+	    	break;
+
+	    case SYS_write:
+	    	err = sys_write(tf->tf_a0, tf->tf_a1, tf->tf_a2);
+	    	break;
+
+	    case SYS_fork:
+	    	retval = sys_form();
+	    	break;
+
+	    case SYS_getpid:
+	    	retval = sys_getpid();
+	    	break;
+
+	    case SYS_waitpid:
+	    	retval = sys_waitpid(tf->tf_a0, tf->tf_a1, tf->tf_a2);
+	    	break;
+
+	    case SYS__exit:
+	    	sys__exit(tf->tf_a0);
+	    	break;
+
+	    case SYS_execv:
+	    	err = sys_execv(tf->tf_a0, tf->tf_a1);
+	    	break;
+
+#endif
  
 	    default:
-		kprintf("Unknown syscall %d\n", callno);
-		err = ENOSYS;
-		break;
+			kprintf("Unknown syscall %d\n", callno);
+			err = ENOSYS;
+			break;
 	}
 
 
