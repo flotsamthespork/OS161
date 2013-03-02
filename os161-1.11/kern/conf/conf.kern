@@ -457,7 +457,15 @@ defoption A0
 file		main/hello.c
 defoption A1
 defoption A2
-# UW For A3 use the stats tracking code provided
+file		arch/mips/mips/syscall/open.c
+file		arch/mips/mips/syscall/close.c
+file		arch/mips/mips/syscall/read.c
+file		arch/mips/mips/syscall/write.c
+file		arch/mips/mips/syscall/fork.c
+file		arch/mips/mips/syscall/getpid.c
+file		arch/mips/mips/syscall/waitpid.c
+file		arch/mips/mips/syscall/exit.c
+file		arch/mips/mips/syscall/execv.c
 defoption A3
    file    vm/uw-vmstats.c
 defoption A4
