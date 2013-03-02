@@ -1,0 +1,24 @@
+# OS161 generated files
+depend.mk
+
+os161-1.11/kern/compile
+root/kernel*
+
+# Compiled Source
+*.com
+*.class
+*.dll
+*.exe
+*.o
+*.so
+*.a
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+.Icon?
+ehthumbs.db
+Thumbs.db
