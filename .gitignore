@@ -3,6 +3,7 @@ depend.mk
 
 os161-1.11/kern/compile/*
 root/kernel*
+a2-test-scripts
 
 # Compiled Source
 *.com
