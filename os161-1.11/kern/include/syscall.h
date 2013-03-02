@@ -1,8 +1,7 @@
 #ifndef _SYSCALL_H_
 #define _SYSCALL_H_
 
-#include <unistd.h>
-#include <sys/wait.h>
+#include <types.h>
 
 /*
  * Prototypes for IN-KERNEL entry points for system call implementations.
