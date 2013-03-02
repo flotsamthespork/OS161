@@ -92,7 +92,7 @@ mips_syscall(struct trapframe *tf)
 	    	break;
 
 	    case SYS_fork:
-	    	retval = sys_form();
+	    	retval = sys_fork();
 	    	break;
 
 	    case SYS_getpid:
