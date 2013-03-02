@@ -2,10 +2,11 @@
  * Header file for synchronization primitives.
  */
 
-#include "opt-A1.h"
-
 #ifndef _SYNCH_H_
 #define _SYNCH_H_
+
+#include "opt-A1.h"
+#include "queue.h"
 
 /*
  * Dijkstra-style semaphore.
@@ -50,13 +51,24 @@ void              sem_destroy(struct semaphore *);
  * internally.
  */
 
-struct lock {
-
-	char *name;
 #if OPT_A1
-	int isLocked;
-	struct thread *thread;
+
+#define LOCK_QUEUE_INITIAL_SIZE 10
+
 #endif
+
+struct lock {
+	char *name;
+
+#if OPT_A1
+
+	// the current owner of the lock
+	volatile struct thread *owner;
+
+	volatile struct queue *queue;
+
+#endif
+
 };
 
 struct lock *lock_create(const char *name);
@@ -92,11 +104,22 @@ void         lock_destroy(struct lock *);
  * internally.
  */
 
-struct cv {
-	char *name;
 #if OPT_A1
-	struct queue *queue;
+
+#define CV_QUEUE_INITIAL_SIZE 10
+
 #endif
+
+struct cv {
+
+	char *name;
+
+#if OPT_A1
+
+	volatile struct queue *queue;
+
+#endif
+
 };
 
 struct cv *cv_create(const char *name);
