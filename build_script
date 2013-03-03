@@ -25,6 +25,12 @@ else
 		(cd os161-1.11/kern/compile/ASST$ASST && make depend)
 		(cd os161-1.11/kern/compile/ASST$ASST && make)
 		cp os161-1.11/kern/compile/ASST$ASST/kernel root/kernel-ASST$ASST
+		
+		if [[ "$RUN" -ne 0 && "$?" -ne 0 ]]; then
+			echo "Build failed. Aborting run."
+			RUN=0
+		fi
+
 		rm root/kernel
 		(cd root && ln -s kernel-ASST$ASST kernel)
 	fi
