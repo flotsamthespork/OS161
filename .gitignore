@@ -14,6 +14,10 @@ a2-test-scripts
 *.so
 *.a
 
+# Compiled Sources for Host OS
+*.ho
+*.ha
+
 # OS generated files
 .DS_Store
 .DS_Store?
