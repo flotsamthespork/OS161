@@ -15,16 +15,6 @@ int sys_close(int fd, int *err) {
 
 	lock_acquire(file_table_lock);
 
-//	DEBUG(DB_FSYSCALL, "Dumping file table on close\n");
-//	int i;
-//	for (i = 0; i < MAX_FILE_HANDLES; i++) {
-//		if (file_table[i] == NULL) {
-//			DEBUG(DB_FSYSCALL, "\t%d is NULL\n", i);
-//		} else {
-//			DEBUG(DB_FSYSCALL, "\t%d is %s\n", i, file_table[fd]->name);
-//		}
-//	}
-
 	if (file_table[fd] != NULL) {
 		DEBUG(DB_FSYSCALL, "Closing file handle %d\n", fd);
 
@@ -40,6 +30,7 @@ int sys_close(int fd, int *err) {
 		*err = 0;
 		retval = 0;
 	} else {
+		// This handles stdin, stdout, and stderr since those file_table entries will always be NULL
 		DEBUG(DB_FSYSCALL, "Invalid file handle %d passed to close\n", fd);
 
 		*err = EBADF;
