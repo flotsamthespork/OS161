@@ -1,0 +1,10 @@
+#!/bin/bash
+
+sed_cmd=s/#/$1/g
+directory=`cd root && pwd`
+
+sed "$sed_cmd" .gdb_session > .gdb_session_script
+gnome-terminal --working-directory="$directory" -x sh -c 'cs350-gdb kernel -x ../.gdb_session_script '
+
+(cd root && sys161 -w kernel)
+rm .gdb_session_script
