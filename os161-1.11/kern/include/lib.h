@@ -49,6 +49,7 @@
 #define DB_NET         0x200
 #define DB_NETFS       0x400
 #define DB_KMALLOC     0x800
+#define DB_FSYSCALL    0x1000
 
 extern u_int32_t dbflags;
 
