@@ -11,9 +11,7 @@ int sys_open(const char *filename, int flags, int mode, int *err) {
 	int retval = -1;
 
 	// TODO move this to process initialization
-	if (!file_table_initialized) {
-		initialize_file_table();
-	}
+	initialize_file_table_if_necessary();
 
 	lock_acquire(file_table_lock);
 
