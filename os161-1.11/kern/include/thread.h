@@ -8,6 +8,8 @@
 /* Get machine-dependent stuff */
 #include <machine/pcb.h>
 
+ #include "opt-A2.h"
+
 
 struct addrspace;
 
@@ -37,6 +39,10 @@ struct thread {
 	 * and is manipulated by the virtual filesystem (VFS) code.
 	 */
 	struct vnode *t_cwd;
+
+#if OPT_A2
+	pid_t t_pid;
+#endif
 };
 
 /* Call once during startup to allocate data structures. */

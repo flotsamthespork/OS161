@@ -293,6 +293,10 @@ thread_fork(const char *name,
 	newguy->t_stack[2] = 0xda;
 	newguy->t_stack[3] = 0x33;
 
+#if OPT_A2
+	newguy->t_pid = curthread->t_pid;
+#endif
+
 	/* Inherit the current directory */
 	if (curthread->t_cwd != NULL) {
 		VOP_INCREF(curthread->t_cwd);
