@@ -1,9 +1,6 @@
 #include <syscall.h>
+#include <curthread.h>
 
 pid_t sys_getpid() {
-
-	// TODO
-
-	return -1;
-
+	return curthread->t_pid;
 }
