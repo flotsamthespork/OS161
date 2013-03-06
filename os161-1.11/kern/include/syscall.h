@@ -12,9 +12,10 @@ struct trapframe;
 int sys_reboot(int code);
 
 int sys_open(const char *filename, int flags, int mode, int *err);
+int _open(int fd, char *filename, int flags, int mode);
 int sys_close(int fd, int *err);
-int sys_read(int fd, void *buf, size_t buflen);
-int sys_write(int fd, const void *buf, size_t nbytes);
+int sys_read(int fd, void *buf, size_t buflen, int *err);
+int sys_write(int fd, const void *buf, size_t nbytes, int *err);
 
 pid_t sys_fork(struct trapframe *tf, int *errorcode);
 pid_t sys_getpid();
