@@ -56,20 +56,27 @@ cmd_progthread(void *ptr, unsigned long nargs)
 {
 	char **args = ptr;
 	char progname[128];
-	int result;
+	int result, argc;
 
 	assert(nargs >= 1);
 
-	if (nargs > 2) {
-		kprintf("Warning: argument passing from menu not supported\n");
-	}
+	// if (nargs > 2) {
+	// 	kprintf("Warning: argument passing from menu not supported\n");
+	// }
 
 	/* Hope we fit. */
 	assert(strlen(args[0]) < sizeof(progname));
 
 	strcpy(progname, args[0]);
 
-	result = runprogram(progname);
+	argc = 0;
+	if (args != NULL) {
+		while (args[argc] != NULL) {
+			argc += 1;
+		}
+	}
+
+	result = runprogram(progname, argc, args);
 	if (result) {
 		kprintf("Running program %s failed: %s\n", args[0],
 			strerror(result));
