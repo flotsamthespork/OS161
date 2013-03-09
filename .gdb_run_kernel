@@ -1,3 +1,0 @@
-#!/bin/bash
-
-(cd root && sys161 -w kernel "p testbin/argtest one two three four five;q")
