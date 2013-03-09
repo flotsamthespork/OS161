@@ -21,7 +21,7 @@
 // Brings the given value up to the next multiple of 4.
 // Eg. 0 -> ceilTo4 -> 4,
 //     5 -> ceilTo4 -> 8
-int ceilTo4(int value) {
+static int ceilTo4(int value) {
 	return (value + (4 - (value % 4)));
 }
 
@@ -55,7 +55,7 @@ int getStrLength(char *ptr) {
 // *(dst+4) = (dst+0)
 // *(dst+5) = (dst+1)
 // *(dst+6) = (dst+2)
-int copyArgsOut(char **src, char *dst, int argc, int *offset) {
+static int copyArgsOut(char **src, char *dst, int argc, int *offset) {
 	int argSize, totalSize, len, padlen, i, error;
 
 	// The size for the pointers in dst is 1 more than argc

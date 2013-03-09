@@ -1,7 +1,7 @@
 #ifndef __PROCESS_H__
 #define __PROCESS_H__
 
-#define MAX_PROCESSES 256
+#define MAX_PROCESSES 128
 
 #include <thread.h>
 

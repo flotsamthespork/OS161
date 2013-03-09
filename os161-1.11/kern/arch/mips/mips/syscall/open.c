@@ -56,7 +56,7 @@ int _open(int fd, char *filename, int flags, int mode) {
 
 	file_table[fd] = (struct fd *) kmalloc(sizeof(struct fd));
 
-	file_table[fd]->name = filename;
+	file_table[fd]->name = kstrdup(filename);
 	file_table[fd]->flags = flags;
 	file_table[fd]->position = 0;
 
