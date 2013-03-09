@@ -15,100 +15,104 @@
 #include <vfs.h>
 #include <test.h>
 
-// void *argsToKernel(char **src, char ***dst, int argc) {
-// 	int i, len, padlen;
 
-// 	*dst = kmalloc(argc * sizeof(char *));
-// 	if (*dst == NULL) {
-// 		return NULL;
-// 	}
+#if OPT_A2
 
-// 	// copyin(const_userptr_t usersrc, void *dest, size_t len)
-// 	for (i = 0; i < argc; i++) {
-// 		len = 0;
-// 		while (src[i][len] != '\0') {
-// 			len += 1;
-// 		}
-// 		// Bring the padding length up to a multiple of 4
-// 		padlen = len + (4 - (len % 4));
-
-// 		*dst[i] = kmalloc(padlen * sizeof(char));
-// 		if (dst == NULL) {
-// 			// Free everything that has been kmalloc'd so far
-// 			for (i -= 1; i >= 0; i--) {
-// 				kfree(*dst[i]);
-// 			}
-// 			kfree(*dst);
-// 			return NULL;
-// 		}
-// 		copyin(src[i], *dst[i], len);
-// 		for (; len < padlen; len++) {
-// 			*dst[len] = '\0';
-// 		}
-// 	}
-
-// 	for (i = 0; i < argc; i++) {
-// 		kprintf("SRC: %s, DST: %s", src[i], *dst[i]);
-// 	}
-// }
-
-// void deleteKArgs(char ***ptr) {
-// 	// TODO - delete that shit
-// }
-
+// Brings the given value up to the next multiple of 4.
+// Eg. 0 -> ceilTo4 -> 4,
+//     5 -> ceilTo4 -> 8
 int ceilTo4(int value) {
 	return (value + (4 - (value % 4)));
 }
 
-int getStrLength(char *ptr) {
-	int len = 0;
-	if (ptr != NULL) {
-		for (len = 0; ptr[len] != '\0'; len += 1);
-	}
-	return len;
-}
+// Copys the arguments array from src and puts it in a collapsed
+// structure on dst. Offset corresponds to the size of this new structure.
+//
+// Eg.
+// *(src+0) = ptr1;
+// *(src+1) = ptr2;
+// *(src+2) = ptr3;
+// *(src+3) = NULL;
+// *ptr1 = 1
+// *ptr2 = 2
+// *ptr3 = 3
+//
+// After runing the algorithm, dst will look like this:
+//
+// *(dst+0) = 3
+// *(dst+1) = 2
+// *(dst+2) = 1
+// *(dst+3) = NULL
+// *(dst+4) = (dst+0)
+// *(dst+5) = (dst+1)
+// *(dst+6) = (dst+2)
+int copyArgsOut(char **src, char *dst, int argc, int *offset) {
+	int argSize, totalSize, len, i, error;
 
-int copyArgsIn(char **src, char **dst, int argc) {
-	int argSize, len, i, MEOW;
+	// The size for the pointers in dst is 1 more than argc
+	// because we need to store NULL at the end
 	const int ptrSize = sizeof(char *) * (argc + 1);
-	char *arg;
 
+	const int *nullPtr = NULL;
+
+	// Pointer to the location in dst to copy data
+	int *ptr = kmalloc(sizeof(int));
+
+	// Figure out the total size of dst
 	argSize = 0;
 	for (i = 0; i < argc; i++) {
-		arg = src[i];
-		if (arg == NULL) {
+		// Ignore null pointers
+		if (src[i] == NULL) {
 			continue;
 		}
-		len = ceilTo4(getStrLength(arg));
-		// kprintf("%s: %d\n", arg, len);
+		len = ceilTo4(strlen(src[i]));
 		argSize += len;
 	}
 
-	// kprintf("%d\n", totalSize);
-	*dst = kmalloc(ptrSize + argSize);
-	if (*dst == NULL) {
-		return ENOMEM;
-	}
-
-	// copyinstr(const_userptr_t usersrc, char *dest, size_t len, size_t *actual)
+	totalSize = ptrSize + argSize;
 
 	argSize = 0;
 
-	// Copy in pointers first
-	for (i = 0; i < argc; i++) {
-		len = getStrLength(src[i]);
-		MEOW = copyinstr(src[i], dst + (ptrSize + argSize), len, NULL);
-		if (MEOW) {
-			kprintf("WOOF %d\n", MEOW);
+	for (i = 0; i <= argc; i++) {
+		if (src[i] != NULL) {
+			// If the pointer isn't null we probably have a string
+			len = strlen(src[i]);
+
+			*ptr = ((int)dst) - totalSize + ptrSize + argSize;
+
+			// Try to copy the string into user space
+			error = copyoutstr(src[i], (void*)*ptr, len + 1, NULL);
+			if (error) {
+				kfree(ptr);
+				return error;
+			}
+
+			// Try to copy the pointer into user space
+			error = copyout(ptr, dst - totalSize + (i*4), 4);
+			if (error) {
+				kfree(ptr);
+				return error;
+			}
+
+			argSize += ceilTo4(len);;
 		}
-		kprintf("NEWSTRING\n");
-		for (MEOW = 0; MEOW < len; MEOW++) {
-			kprintf("> %d\n", *dst[ptrSize + MEOW + argSize]);
+		else {
+			// Null pointer
+			error = copyout(&nullPtr, dst - totalSize + (i*4), 4);
+			if (error) {
+				kfree(ptr);
+				return error;
+			}
 		}
-		// kprintf("%d: %s\n", (ptrSize + argSize), dst[(ptrSize + argSize)]);
-		argSize += ceilTo4(len);
 	}
+
+	kfree(ptr);
+
+	*offset = totalSize;
+	return 0;
 }
+
+#endif
 
 /*
  * Load program "progname" and start running it in usermode.
@@ -117,12 +121,15 @@ int copyArgsIn(char **src, char **dst, int argc) {
  * Calls vfs_open on progname and thus may destroy it.
  */
 int
+#if OPT_A2
 runprogram(char *progname, int argc, char **argv)
+#else
+runprogram(char *progname)
+#endif
 {
 	struct vnode *v;
 	vaddr_t entrypoint, stackptr;
-	int result;
-	char *kargs = NULL;
+	int result, offset;
 
 	/* Open the file. */
 	result = vfs_open(progname, O_RDONLY, &v);
@@ -161,14 +168,19 @@ runprogram(char *progname, int argc, char **argv)
 		return result;
 	}
 
-	result = copyArgsIn(argv, &kargs, argc);
+#if OPT_A2
+	result = copyArgsOut(argv, (char *) stackptr - 4, argc, &offset);
 	if (result) {
 		return result;
 	}
 
 	/* Warp to user mode. */
-	md_usermode(0, NULL, //argv,
-		    stackptr, entrypoint);
+	md_usermode(argc, (stackptr - offset - 4), //argv,
+		    (stackptr - offset - 8), entrypoint);
+#else
+	/* Warp to user mode. */
+	md_usermode(0, NULL,stackptr, entrypoint);
+#endif
 	
 	/* md_usermode does not return */
 	panic("md_usermode returned\n");

@@ -56,7 +56,7 @@ cmd_progthread(void *ptr, unsigned long nargs)
 {
 	char **args = ptr;
 	char progname[128];
-	int result, argc;
+	int result;
 
 	assert(nargs >= 1);
 
@@ -69,14 +69,7 @@ cmd_progthread(void *ptr, unsigned long nargs)
 
 	strcpy(progname, args[0]);
 
-	argc = 0;
-	if (args != NULL) {
-		while (args[argc] != NULL) {
-			argc += 1;
-		}
-	}
-
-	result = runprogram(progname, argc, args);
+	result = runprogram(progname, nargs, args);
 	if (result) {
 		kprintf("Running program %s failed: %s\n", args[0],
 			strerror(result));
