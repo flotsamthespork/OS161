@@ -25,6 +25,15 @@ int ceilTo4(int value) {
 	return (value + (4 - (value % 4)));
 }
 
+// Returns the length of the string passed in
+int getStrLength(char *ptr) {
+	int len = 0;
+	if (ptr != NULL) {
+		for (len = 0; ptr[len] != '\0'; len += 1);
+	}
+	return len;
+}
+
 // Copys the arguments array from src and puts it in a collapsed
 // structure on dst. Offset corresponds to the size of this new structure.
 //
@@ -47,7 +56,7 @@ int ceilTo4(int value) {
 // *(dst+5) = (dst+1)
 // *(dst+6) = (dst+2)
 int copyArgsOut(char **src, char *dst, int argc, int *offset) {
-	int argSize, totalSize, len, i, error;
+	int argSize, totalSize, len, padlen, i, error;
 
 	// The size for the pointers in dst is 1 more than argc
 	// because we need to store NULL at the end
@@ -74,30 +83,31 @@ int copyArgsOut(char **src, char *dst, int argc, int *offset) {
 	argSize = 0;
 
 	for (i = 0; i <= argc; i++) {
-		if (src[i] != NULL) {
-			// If the pointer isn't null we probably have a string
+		// Check that we are still in the bounds of the
+		// input and the input isn't null
+		if (i < argc && src[i] != NULL) {
 			len = strlen(src[i]);
+			padlen = ceilTo4(len);
 
 			*ptr = ((int)dst) - totalSize + ptrSize + argSize;
 
-			// Try to copy the string into user space
+			// Try to copy the string into dst
 			error = copyoutstr(src[i], (void*)*ptr, len + 1, NULL);
 			if (error) {
 				kfree(ptr);
 				return error;
 			}
 
-			// Try to copy the pointer into user space
+			// Try to copy the pointer into dst
 			error = copyout(ptr, dst - totalSize + (i*4), 4);
 			if (error) {
 				kfree(ptr);
 				return error;
 			}
 
-			argSize += ceilTo4(len);;
-		}
-		else {
-			// Null pointer
+			argSize += padlen;
+		} else {
+			// Try to copy NULL into the arguments array
 			error = copyout(&nullPtr, dst - totalSize + (i*4), 4);
 			if (error) {
 				kfree(ptr);
@@ -105,6 +115,7 @@ int copyArgsOut(char **src, char *dst, int argc, int *offset) {
 			}
 		}
 	}
+
 
 	kfree(ptr);
 
@@ -169,14 +180,14 @@ runprogram(char *progname)
 	}
 
 #if OPT_A2
-	result = copyArgsOut(argv, (char *) stackptr - 4, argc, &offset);
+	result = copyArgsOut(argv, (char *) stackptr - 8, argc, &offset);
 	if (result) {
 		return result;
 	}
 
 	/* Warp to user mode. */
-	md_usermode(argc, (stackptr - offset - 4), //argv,
-		    (stackptr - offset - 8), entrypoint);
+	md_usermode(argc, (stackptr - offset - 8), //argv,
+		    (stackptr - offset - 12), entrypoint);
 #else
 	/* Warp to user mode. */
 	md_usermode(0, NULL,stackptr, entrypoint);
