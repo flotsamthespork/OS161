@@ -7,9 +7,6 @@
 #include <synch.h>
 
 void sys__exit(int exitcode) {
-	int spl = splhigh();
-
-	// kprintf("Exiting... pid(%d)\n", curthread->t_pid);
 
 	struct process *process = runningprocesses[curthread->t_pid];
 	if (process != NULL) {
@@ -19,8 +16,6 @@ void sys__exit(int exitcode) {
 		cv_broadcast(process->p_exitcv, process->p_exitlock);
 		lock_release(process->p_exitlock);
 	}
-
-	splx(spl);
 
 	thread_exit();
 
