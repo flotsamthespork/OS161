@@ -10,22 +10,29 @@
 #include <vfs.h>
 #include <test.h>
 
+
+// Counts the number of arguments detected in "args".
+// Returns 0 if there wasn't an error with argument counting.
 int getArgCount(char **args, int *argc) {
 	int error;
 	*argc = 0;
+
+	// Check that the argument array exists
 	if (args == NULL) {
-		return EFAULT; // Is the actually even an error?
+		return EFAULT; 
 	}
 
-	error = as_valid_ptr(args);
+	// Check that the argument array is a valid pointer
+	// in the address space of the program.
+	error = as_valid_ptr((vaddr_t)args);
 	if (error) {
 		return error;
 	}
 
-	// TODO - SMASH ANY BAD ARGUMENTS WITH THE POWER OF ERRORS
-
+	// Count arguments until the terminating NULL is found
 	for (; args[*argc] != NULL; *argc += 1) {
-		error = as_valid_ptr(args[*argc]);
+		// Check that each argument is not an invalid pointer
+		error = as_valid_ptr((vaddr_t)args[*argc]);
 		if (error) {
 			return error;
 		}
@@ -47,50 +54,74 @@ static int ceilTo4(int value) {
 
 
 
+// Copys the arguments array from src and puts it in kernel in a collapsed
+// structure, dst. Offset corresponds to the size of this new structure.
+//
+// Eg.
+// *(src+0) = ptr1;
+// *(src+1) = ptr2;
+// *(src+2) = ptr3;
+// *(src+3) = NULL;
+// *ptr1 = 1
+// *ptr2 = 2
+// *ptr3 = 3
+//
+// After running the algorithm, dst will look like this:
+//
+// *(dst+0) = 3
+// *(dst+1) = 2
+// *(dst+2) = 1
+// *(dst+3) = NULL
+// *(dst+4) = (dst+0)
+// *(dst+5) = (dst+1)
+// *(dst+6) = (dst+2)
+//
+// Returns 0 on success
 static int copyArgsIn(char **src, char **dst, int argc, int *totalsize) {
 	int i, len, argsize, error;
 
+	// Size taken up by the pointers in dst
 	const int ptrsize = sizeof(char *) * (argc + 1);
 
+	// Calculate the size required to store the arguments in dst
 	argsize = 0;
-	if (src != NULL) {
-		for (i = 0; i < argc; i++) {
-			if (src[i] != NULL) {
-				argsize += ceilTo4(strlen(src[i]));
-			} else {
-				// TODO - why the fuck is there a null argument?
-			}
-		}
+	for (i = 0; i < argc; i++) {
+		// Round each size up to the nearest 4 so their address
+		// will be a valid pointer
+		argsize += ceilTo4(strlen(src[i]));
 	}
 
+	// Calculate the total size of dst and kmalloc it
 	*totalsize = ptrsize + argsize;
-
 	*dst = kmalloc(*totalsize);
 	if (*dst == NULL) {
 		return ENOMEM;
 	}
 
+	// Copy arguments into kernel
 	argsize = 0;
+	for (i = 0; i < argc; i++) {
+		// Get the length of the argument so we know how much we
+		// need to copy into dst.
+		len = strlen(src[i]);
 
-	for (i = 0; i <= argc; i++) {
-		// Check that we are still in the bounds of the
-		// input and the input isn't null
-		if (i < argc && src != NULL && src[i] != NULL) {
-			len = strlen(src[i]);
-
-			int error = copyinstr(src[i], *dst + ptrsize + argsize, len + 1, NULL);
-			if (error) {
-				kfree(*dst);
-				*dst = NULL;
-				return;
-			}
-
-			((int*)*(dst))[i] = ptrsize + argsize;
-
-			argsize += ceilTo4(len);
-		} else {
-			((int*)*(dst))[i] = 0;
+		error = copyinstr((void*)src[i], // Address of the argument
+									  // from src
+			(char*)(*dst + ptrsize + argsize), // offset address of the
+									  // argument in dst
+			len + 1, // Add 1 to length to copy terminating character
+			NULL);
+		if (error) {
+			kfree(*dst);
+			*dst = NULL;
+			return error;
 		}
+
+		// Evaluate the value of the argument pointer relative to dst
+		((int*)*(dst))[i] = ptrsize + argsize;
+
+		// Update the offset into the argument array
+		argsize += ceilTo4(len);
 	}
 	
 	return 0;
@@ -99,17 +130,35 @@ static int copyArgsIn(char **src, char **dst, int argc, int *totalsize) {
 
 
 
+// Copies the data structure (in dst), as shown in copyArgsIn,
+// into user space so it may be used by the program being
+// executed.
 static int copyArgsOut(char *src, char *dst, int argc, int argsize) {
-	int i, dataoffset = 4*(argc+1);
-	int *ptrdst = (int*) dst;
-	int *ptrsrc = (int*) src;
+	int i;
+	// See copyArgsIn
+	const int ptrsize = sizeof(char *) * (argc + 1);
+
+	// Interpret dst/src as char** so we can simply set the
+	// values of the pointers (this way ptrdst[i] corresponds
+	// to a 4-byte offset into the pointer instead of 1 byte)
+	char **ptrdst = (char**) dst;
+	char **ptrsrc = (char**) src;
 	for (i = 0; i < argc; i++) {
-		ptrdst[i] = dst + ptrsrc[i];
+		// Add the offset calculated in copyArgsIn onto dst
+		// to get the actual address for the pointer
+		ptrdst[i] = dst + (int)ptrsrc[i];
 	}
+	// Set the NULL pointer
 	ptrdst[argc] = NULL;
-	int error = copyout(src + dataoffset,
-						dst + dataoffset,
-						argsize - dataoffset);
+
+
+	int error = copyout(
+		// Copy everything beyond the pointers
+		(void*)(src + ptrsize),
+		// Place everything beyond the pointers in user space
+		(void*)(dst + ptrsize),
+		// Copy the total size of the arguments only
+		(size_t)(argsize - ptrsize));
 	if (error) {
 		return error;
 	}
@@ -129,7 +178,7 @@ int sys_execv(const char *program, char **args) {
 		return EFAULT;
 	}
 
-	result = as_valid_ptr(program);
+	result = as_valid_ptr((vaddr_t)program);
 	if (result) {
 		return result;
 	}
@@ -195,14 +244,14 @@ int sys_execv(const char *program, char **args) {
 	}
 
 	// TODO - copy the arguments from kbuffer to stack
-	result = copyArgsOut(kargs, stackptr-argsize-8, argc, argsize);
+	result = copyArgsOut(kargs, (char*)(stackptr-argsize-8), argc, argsize);
 	if (result) {
 		kfree(kargs);
 		return result;
 	}
 
 	/* Warp to user mode. */
-	md_usermode(argc, (stackptr - argsize - 8), //argv,
+	md_usermode(argc, (char**)(stackptr - argsize - 8), //argv,
 		    (stackptr - argsize - 12), entrypoint);
 	
 	/* md_usermode does not return */
