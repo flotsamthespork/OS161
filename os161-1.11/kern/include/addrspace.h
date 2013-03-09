@@ -4,6 +4,8 @@
 #include <vm.h>
 #include "opt-dumbvm.h"
 
+#include "opt-A2.h"
+
 struct vnode;
 
 /* 
@@ -74,6 +76,10 @@ int               as_define_region(struct addrspace *as,
 int		  as_prepare_load(struct addrspace *as);
 int		  as_complete_load(struct addrspace *as);
 int               as_define_stack(struct addrspace *as, vaddr_t *initstackptr);
+
+#if OPT_A2
+int 		as_valid_ptr(vaddr_t ptr);
+#endif
 
 /*
  * Functions in loadelf.c

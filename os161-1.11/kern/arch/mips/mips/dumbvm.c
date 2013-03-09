@@ -313,3 +313,55 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 	*ret = new;
 	return 0;
 }
+
+
+#if OPT_A2
+int as_valid_ptr(vaddr_t ptr) {
+	vaddr_t vbase1, vtop1, vbase2, vtop2, stackbase, stacktop;
+	paddr_t paddr;
+	int i;
+	u_int32_t ehi, elo;
+	struct addrspace *as;
+	int spl;
+
+	spl = splhigh();
+
+	ptr &= PAGE_FRAME;
+
+	as = curthread->t_vmspace;
+	if (as == NULL) {
+		return EFAULT;
+	}
+
+	/* Assert that the address space has been set up properly. */
+	assert(as->as_vbase1 != 0);
+	assert(as->as_pbase1 != 0);
+	assert(as->as_npages1 != 0);
+	assert(as->as_vbase2 != 0);
+	assert(as->as_pbase2 != 0);
+	assert(as->as_npages2 != 0);
+	assert(as->as_stackpbase != 0);
+	assert((as->as_vbase1 & PAGE_FRAME) == as->as_vbase1);
+	assert((as->as_pbase1 & PAGE_FRAME) == as->as_pbase1);
+	assert((as->as_vbase2 & PAGE_FRAME) == as->as_vbase2);
+	assert((as->as_pbase2 & PAGE_FRAME) == as->as_pbase2);
+	assert((as->as_stackpbase & PAGE_FRAME) == as->as_stackpbase);
+
+	vbase1 = as->as_vbase1;
+	vtop1 = vbase1 + as->as_npages1 * PAGE_SIZE;
+	vbase2 = as->as_vbase2;
+	vtop2 = vbase2 + as->as_npages2 * PAGE_SIZE;
+	stackbase = USERSTACK - DUMBVM_STACKPAGES * PAGE_SIZE;
+	stacktop = USERSTACK;
+
+	if (ptr >= vbase1 && ptr < vtop1) {}
+	else if (ptr >= vbase2 && ptr < vtop2) {}
+	else if (ptr >= stackbase && ptr < stacktop) {}
+	else {
+		splx(spl);
+		return EFAULT;
+	}
+	splx(spl);
+	return 0;
+}
+#endif
