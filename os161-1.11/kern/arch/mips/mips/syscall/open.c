@@ -1,10 +1,19 @@
 #include <syscall.h>
 
+#include <kern/errno.h>
 #include <lib.h>
 #include <fd.h>
 #include <vfs.h>
+#include <addrspace.h>
 
 int sys_open(const char *filename, int flags, int mode, int *err) {
+
+	// make sure that we've been given a valid pointer for the file name
+	// TODO talk to patrick about as_valid_ptr since it returns weirdly (0 on a valid ptr?)
+	if (as_valid_ptr(filename)) {
+		*err = EFAULT;
+		return -1;
+	}
 
 	int retval = -1;
 
@@ -19,23 +28,16 @@ int sys_open(const char *filename, int flags, int mode, int *err) {
 			// TODO do we need to free the duplicated filename?
 			*err = _open(i, kstrdup(filename), flags, mode);
 
-//			DEBUG(DB_FSYSCALL, "Opening %s with description %d\n", filename, i);
-//
-//			// we found an empty entry so use this one
-//			file_table[i] = (struct fd *) kmalloc(sizeof(struct fd));
-//
-//			file_table[i]->name = kstrdup(filename);
-//			file_table[i]->flags = flags;
-//			file_table[i]->position = 0;
-//
-//			*err = vfs_open(file_table[i]->name, flags, &(file_table[i]->node));
-//			// TODO do we have to free path?
-//
-//			DEBUG(DB_FSYSCALL, "vfs_open returned %d\n", *err);
-
 			retval = i;
 			break;
 		}
+	}
+
+	if (i == MAX_FILE_HANDLES) {
+		DEBUG(DB_FSYSCALL, "Ran out of space in the file table.\n");
+
+		retval = -1;
+		*err = EMFILE;
 	}
 
 	lock_release(file_table_lock);

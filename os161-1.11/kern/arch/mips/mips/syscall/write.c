@@ -10,6 +10,9 @@
 
 int sys_write(int fd, const void *buf, size_t nbytes, int *err) {
 
+	// TODO initialize file table if necessary?
+	// TODO use file table locks
+
 	// make sure that we're using a file handle which is actually open
 	if (fd < 0 || fd > MAX_FILE_HANDLES - 1) {
 		DEBUG(DB_FSYSCALL, "Invalid file handle %d\n", fd);
@@ -38,10 +41,14 @@ int sys_write(int fd, const void *buf, size_t nbytes, int *err) {
 		}
 	}
 
-	// make sure that the file is open
+	// make sure that the file is open and writable
 	if (file_table[fd] == NULL) {
 		DEBUG(DB_FSYSCALL, "Write attempted on closed file %d.\n", fd);
 
+		*err = EBADF;
+		return -1;
+	} else if (file_table[fd]->flags == O_RDONLY) {
+		DEBUG(DB_FSYSCALL, "Write attempted on read-only file %d.\n", fd);
 		*err = EBADF;
 		return -1;
 	}

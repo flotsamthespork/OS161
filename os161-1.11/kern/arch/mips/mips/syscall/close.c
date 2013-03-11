@@ -15,7 +15,20 @@ int sys_close(int fd, int *err) {
 
 	lock_acquire(file_table_lock);
 
-	if (file_table[fd] != NULL) {
+	// TODO refactor this to be ordered a bit nicer
+	if (fd >= 0 && fd <= 2) {
+		// we can't close stdio
+		DEBUG(DB_FSYSCALL, "Close attempted on %s.\n", (fd == 0 ? "stdin" : (fd == 1 ? "stdout" : "stderr")));
+
+		*err = EBADF;
+		retval = -1;
+	} else if (fd < 0 || fd >= MAX_FILE_HANDLES) {
+		// this isn't even a file handle
+		DEBUG(DB_FSYSCALL, "Close attempted on invalid handle %d.\n", fd);
+
+		*err = EBADF;
+		retval = -1;
+	} else if (file_table[fd] != NULL) {
 		DEBUG(DB_FSYSCALL, "Closing file handle %d\n", fd);
 
 		// close file
