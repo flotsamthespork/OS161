@@ -26,7 +26,7 @@ int sys_open(const char *filename, int flags, int mode, int *err) {
 	for (i = FIRST_FILE_HANDLE; i < MAX_FILE_HANDLES; i++) {
 		if (file_table[i] == NULL) {
 			// TODO do we need to free the duplicated filename?
-			*err = _open(i, kstrdup(filename), flags, mode);
+			*err = _open(i, filename, flags, mode);
 
 			retval = i;
 			break;
@@ -48,7 +48,7 @@ int sys_open(const char *filename, int flags, int mode, int *err) {
 
 /** Performs the actual opening given a file handle so that we can use this
  * to open stdio automatically from read/write. **/
-int _open(int fd, char *filename, int flags, int mode) {
+int _open(int fd, const char *filename, int flags, int mode) {
 
 	((void) mode); // hide unused argument warning
 
@@ -58,11 +58,14 @@ int _open(int fd, char *filename, int flags, int mode) {
 
 	file_table[fd] = (struct fd *) kmalloc(sizeof(struct fd));
 
-	file_table[fd]->name = filename;
+	file_table[fd]->name = kstrdup(filename);
 	file_table[fd]->flags = flags;
 	file_table[fd]->position = 0;
 
-	int err = vfs_open(file_table[fd]->name, file_table[fd]->flags, &(file_table[fd]->node));
+	// duplicate the filename for opening because vfs_open doesn't preserve it
+	char * kfilename = kstrdup(filename);
+	int err = vfs_open(kfilename, file_table[fd]->flags, &(file_table[fd]->node));
+	kfree(kfilename);
 
 	DEBUG(DB_FSYSCALL, "vfs_open returned %d when opening %s as %d in %d\n", err, file_table[fd]->name, file_table[fd]->flags, fd);
 

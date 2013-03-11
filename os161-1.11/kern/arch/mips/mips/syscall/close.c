@@ -31,6 +31,9 @@ int sys_close(int fd, int *err) {
 	} else if (file_table[fd] != NULL) {
 		DEBUG(DB_FSYSCALL, "Closing file handle %d\n", fd);
 
+		// free file name
+		kfree(file_table[fd]->name);
+
 		// close file
 		vfs_close(file_table[fd]->node);
 
