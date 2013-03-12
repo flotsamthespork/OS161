@@ -1,13 +1,15 @@
 #include <syscall.h>
 
-#include <synch.h>
+#include <curthread.h>
 #include <fd.h>
-#include <vfs.h>
-#include <uio.h>
-#include <vnode.h>
-#include <lib.h>
-#include <kern/unistd.h>
 #include <kern/errno.h>
+#include <kern/unistd.h>
+#include <lib.h>
+#include <synch.h>
+#include <thread.h>
+#include <uio.h>
+#include <vfs.h>
+#include <vnode.h>
 
 int sys_write(int fd, const void *buf, size_t nbytes, int *err) {
 
@@ -74,26 +76,19 @@ int sys_write(int fd, const void *buf, size_t nbytes, int *err) {
 
 	struct uio output;
 
-	// copy the data to system space since we don't know the address space for the uio
-	void *data = kmalloc(nbytes);
-	memcpy(data, buf, nbytes);
-
 	// set where the data is and how long it is
-	output.uio_iovec.iov_kbase = data;
+	output.uio_iovec.iov_kbase = buf; // changed
 	output.uio_iovec.iov_len = nbytes;
 
 	output.uio_offset = file_table[fd]->position; // where in the file we want to write to
 	output.uio_resid = nbytes; // how much data we can transfer
-	output.uio_segflg = UIO_SYSSPACE;
+	output.uio_segflg = UIO_USERSPACE;
 	output.uio_rw = UIO_WRITE;
-	output.uio_space = NULL; // the data is in kernel space
+	output.uio_space = curthread->t_vmspace; // get the address space for the current thread
 
 	// perform the actual write
 	*err = VOP_WRITE(file_table[fd]->node, &output);
 	int length = output.uio_offset - file_table[fd]->position;
-
-	// free memory
-	kfree(data);
 
 	if (*err == 0) {
 		DEBUG(DB_FSYSCALL, "Write started at %d and wrote %d of %d bytes successfully.\n",

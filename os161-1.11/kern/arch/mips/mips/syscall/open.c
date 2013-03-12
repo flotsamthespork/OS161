@@ -1,10 +1,10 @@
 #include <syscall.h>
 
+#include <addrspace.h>
+#include <fd.h>
 #include <kern/errno.h>
 #include <lib.h>
-#include <fd.h>
 #include <vfs.h>
-#include <addrspace.h>
 
 int sys_open(const char *filename, int flags, int mode, int *err) {
 

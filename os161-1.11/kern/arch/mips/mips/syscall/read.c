@@ -1,12 +1,14 @@
 #include <syscall.h>
 
+#include <curthread.h>
 #include <fd.h>
-#include <vfs.h>
-#include <uio.h>
-#include <vnode.h>
-#include <lib.h>
-#include <kern/unistd.h>
 #include <kern/errno.h>
+#include <kern/unistd.h>
+#include <lib.h>
+#include <thread.h>
+#include <uio.h>
+#include <vfs.h>
+#include <vnode.h>
 
 int sys_read(int fd, void *buf, size_t buflen, int *err) {
 
@@ -73,27 +75,27 @@ int sys_read(int fd, void *buf, size_t buflen, int *err) {
 
 	struct uio output;
 
-	// create a buffer in kernel space which we'll copy back into user space
-	// TODO do we need to copy it or can we just use curthread->aspace
-	void *data = kmalloc(buflen);
+//	// create a buffer in kernel space which we'll copy back into user space
+//	// TODO do we need to copy it or can we just use curthread->aspace
+//	void *data = kmalloc(buflen);
 
 	// set where the data is and how long it is
-	output.uio_iovec.iov_kbase = data;
+	output.uio_iovec.iov_kbase = buf;
 	output.uio_iovec.iov_len = buflen;
 
 	output.uio_offset = file_table[fd]->position; // where in the file we want to read from
 	output.uio_resid = buflen; // how much data we can transfer
-	output.uio_segflg = UIO_SYSSPACE;
+	output.uio_segflg = UIO_USERSPACE;
 	output.uio_rw = UIO_READ;
-	output.uio_space = NULL; // the data is in kernel space
+	output.uio_space = curthread->t_vmspace;
 
 	// perform the actual read
 	*err = VOP_READ(file_table[fd]->node, &output);
 	int length = output.uio_offset - file_table[fd]->position;
 
-	// copy the memory back to user space and then free
-	memcpy(buf, data, length);
-	kfree(data);
+//	// copy the memory back to user space and then free
+//	memcpy(buf, data, length);
+//	kfree(data);
 
 	if (*err == 0) {
 		// update the position in the file

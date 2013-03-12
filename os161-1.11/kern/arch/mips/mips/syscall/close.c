@@ -1,10 +1,10 @@
 #include <syscall.h>
 
-#include <lib.h>
 #include <fd.h>
-#include <vfs.h>
-#include <kern/unistd.h>
 #include <kern/errno.h>
+#include <kern/unistd.h>
+#include <lib.h>
+#include <vfs.h>
 
 int sys_close(int fd, int *err) {
 
