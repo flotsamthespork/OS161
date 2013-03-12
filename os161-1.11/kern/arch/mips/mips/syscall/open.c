@@ -59,12 +59,12 @@ int _open(int fd, const char *filename, int flags, int mode) {
 	file_table[fd] = (struct fd *) kmalloc(sizeof(struct fd));
 
 	file_table[fd]->name = kstrdup(filename);
-	file_table[fd]->flags = flags;
+	file_table[fd]->flags = 0x3 & flags; // strip out flags that aren't O_WRONLY, O_RDONLY, O_RDWR
 	file_table[fd]->position = 0;
 
 	// duplicate the filename for opening because vfs_open doesn't preserve it
 	char * kfilename = kstrdup(filename);
-	int err = vfs_open(kfilename, file_table[fd]->flags, &(file_table[fd]->node));
+	int err = vfs_open(kfilename, flags, &(file_table[fd]->node));
 	kfree(kfilename);
 
 	DEBUG(DB_FSYSCALL, "vfs_open returned %d when opening %s as %d in %d\n", err, file_table[fd]->name, file_table[fd]->flags, fd);
