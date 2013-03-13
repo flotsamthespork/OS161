@@ -459,8 +459,7 @@ defoption A1
 defoption A2
 file		arch/mips/mips/syscall/open.c
 file		arch/mips/mips/syscall/close.c
-file		arch/mips/mips/syscall/read.c
-file		arch/mips/mips/syscall/write.c
+file		arch/mips/mips/syscall/readwrite.c
 file		arch/mips/mips/syscall/fork.c
 file		arch/mips/mips/syscall/getpid.c
 file		arch/mips/mips/syscall/waitpid.c
