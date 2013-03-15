@@ -3,6 +3,7 @@
 
 #include <types.h>
 
+struct fd;
 struct trapframe;
 
 /*
@@ -12,8 +13,9 @@ struct trapframe;
 int sys_reboot(int code);
 
 int sys_open(const char *filename, int flags, int mode, int *err);
-int _open(int fd, const char *filename, int flags, int mode);
+int _open(struct fd *file_table[], int fd, const char *filename, int flags, int mode);
 int sys_close(int fd, int *err);
+void _close(struct fd *file_table[], int fd);
 int sys_read(int fd, void *buf, size_t buflen, int *err);
 int sys_write(int fd, const void *buf, size_t nbytes, int *err);
 

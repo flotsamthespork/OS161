@@ -73,6 +73,21 @@ int process_create(struct process **dst) {
 	(*dst)->p_finished = 0;
 	(*dst)->p_exitcode = 0;
 
+	// initialize the file table and its lock
+	(*dst)->p_file_table_lock = lock_create("file_table_lock");
+	if ((*dst)->p_file_table_lock == NULL) {
+		lock_destroy((*dst)->p_exitlock);
+		cv_destroy((*dst)->p_exitcv);
+		kfree(*dst);
+
+		return ENOMEM;
+	}
+
+	int i;
+	for (i = 0; i < MAX_FILE_HANDLES; i++) {
+		(*dst)->p_file_table[i] = NULL;
+	}
+
 	return 0;
 }
 
@@ -84,12 +99,24 @@ void process_remove(pid_t pid) {
 	lock_destroy(process->p_exitlock);
 	cv_destroy(process->p_exitcv);
 
+	// destroy the file table
+	lock_destroy(process->p_file_table_lock);
+
+	// close unclosed files
+	int i;
+	for (i = FIRST_FILE_HANDLE; i < MAX_FILE_HANDLES; i++) {
+		if (process->p_file_table[i] != NULL) {
+			_close(process->p_file_table, i);
+		}
+	}
+
 	kfree(process);
 	runningprocesses[pid] = NULL;
 }
 
 
 pid_t sys_fork(struct trapframe *tf, int *errorcode) {
+	DEBUG(DB_PROCESSES, "Starting sys_fork");
 	// TODO - possible disable interrupts
 	int spl = splhigh();
 	struct addrspace *newAddrspace = NULL;
@@ -127,6 +154,36 @@ pid_t sys_fork(struct trapframe *tf, int *errorcode) {
 
 	pid = newProcess->p_pid;
 
+	// copy the file table
+	struct fd **parent_file_table = runningprocesses[curthread->t_pid]->p_file_table;
+	struct fd **child_file_table = newProcess->p_file_table;
+
+	int i;
+	for (i = 0; i < MAX_FILE_HANDLES; i++) {
+		if (parent_file_table[i] != NULL) {
+			*errorcode = _open(child_file_table, i, parent_file_table[i]->name, parent_file_table[i]->flags, 0);
+
+			// if we couldn't duplicate an entry, then there's no point in duplicating the rest
+			if (*errorcode != 0) {
+				break;
+			}
+		}
+	}
+
+	if (*errorcode != 0) {
+		for (i = FIRST_FILE_HANDLE; i < MAX_FILE_HANDLES; i++) {
+			if (child_file_table[i] != NULL) {
+				_close(child_file_table, i);
+			}
+		}
+
+		kfree(newTrapFrame);
+		kfree(newAddrspace);
+		process_remove(pid);
+
+		splx(spl);
+		return -1;
+	}
 
 	// Actually fork to a new thread
 	*errorcode = thread_fork("TODO - Thread Name",

@@ -10,6 +10,7 @@
 #include <lib.h>
 #include <addrspace.h>
 #include <thread.h>
+#include <process.h>
 #include <curthread.h>
 #include <vm.h>
 #include <vfs.h>
@@ -180,6 +181,19 @@ runprogram(char *progname)
 	}
 
 #if OPT_A2
+
+	/* Get us a process */
+	struct process *proc;
+	int err = process_create(&proc);
+
+	if (err != 0) {
+		// TODO handle me
+		kprintf("process_create FAILED IN RUNPROGRAM! OH DEAR LAWD!\n");
+	} else {
+		curthread->t_pid = proc->p_pid;
+	}
+
+	/* Copy arguments */
 	result = copyArgsOut(argv, (char *) stackptr - 8, argc, &offset);
 	if (result) {
 		return result;

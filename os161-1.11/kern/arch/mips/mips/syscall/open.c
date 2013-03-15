@@ -1,10 +1,12 @@
 #include <syscall.h>
 
 #include <addrspace.h>
+#include <curthread.h>
 #include <fd.h>
 #include <kern/errno.h>
 #include <lib.h>
 #include <fd.h>
+#include <process.h>
 #include <vfs.h>
 
 int sys_open(const char *filename, int flags, int mode, int *err) {
@@ -18,8 +20,10 @@ int sys_open(const char *filename, int flags, int mode, int *err) {
 
 	int retval = -1;
 
-	// TODO move this to process initialization
-	initialize_file_table_if_necessary();
+	DEBUG(DB_FSYSCALL, "Opening %s in process %d\n", filename, curthread->t_pid);
+
+	struct lock *file_table_lock = runningprocesses[curthread->t_pid]->p_file_table_lock;
+	struct fd **file_table = runningprocesses[curthread->t_pid]->p_file_table;
 
 	lock_acquire(file_table_lock);
 
@@ -27,11 +31,17 @@ int sys_open(const char *filename, int flags, int mode, int *err) {
 	for (i = FIRST_FILE_HANDLE; i < MAX_FILE_HANDLES; i++) {
 		if (file_table[i] == NULL) {
 			// TODO do we need to free the duplicated filename?
-			*err = _open(i, filename, flags, mode);
+			*err = _open(file_table, i, filename, flags, mode);
 
 			retval = i;
 			break;
 		}
+	}
+
+	// too many files open
+	if (i == MAX_FILE_HANDLES) {
+		*err = EMFILE;
+		retval = -1;
 	}
 
 	lock_release(file_table_lock);
@@ -41,8 +51,10 @@ int sys_open(const char *filename, int flags, int mode, int *err) {
 }
 
 /** Performs the actual opening given a file handle so that we can use this
- * to open stdio automatically from read/write. **/
-int _open(int fd, const char *filename, int flags, int mode) {
+ * to open stdio automatically from read/write.
+ *
+ * Note: This function assumes that the arguments are valid.**/
+int _open(struct fd *file_table[], int fd, const char *filename, int flags, int mode) {
 
 	((void) mode); // hide unused argument warning
 
@@ -62,6 +74,14 @@ int _open(int fd, const char *filename, int flags, int mode) {
 	kfree(kfilename);
 
 	DEBUG(DB_FSYSCALL, "vfs_open returned %d when opening %s as %d in %d\n", err, file_table[fd]->name, file_table[fd]->flags, fd);
+
+	// free the file_table entry if an error occurred (if we don't this entry will never be usable again)
+	if (err != 0) {
+		kfree(file_table[fd]->name);
+		kfree(file_table[fd]);
+
+		file_table[fd] = NULL;
+	}
 
 	return err;
 }

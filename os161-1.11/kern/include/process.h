@@ -3,6 +3,7 @@
 
 #define MAX_PROCESSES 128
 
+#include <fd.h>
 #include <thread.h>
 
 struct process {
@@ -13,6 +14,9 @@ struct process {
 	int p_exitcode;
 	struct cv* p_exitcv;
 	struct cv* p_exitlock;
+
+	struct lock *p_file_table_lock; // do I even need a lock here?
+	struct fd *p_file_table[MAX_FILE_HANDLES];
 };
 
 int process_create(struct process **dst);

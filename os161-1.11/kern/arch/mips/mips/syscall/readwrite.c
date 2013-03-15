@@ -5,8 +5,8 @@
 #include <kern/errno.h>
 #include <kern/unistd.h>
 #include <lib.h>
+#include <process.h>
 #include <synch.h>
-#include <thread.h>
 #include <uio.h>
 #include <vfs.h>
 #include <vnode.h>
@@ -15,8 +15,10 @@ static struct uio *constructUio(enum uio_rw operation, void *buffer, size_t leng
 
 int sys_read(int fd, void *buf, size_t buflen, int *err) {
 
-	// TODO move this to process initialization
-	initialize_file_table_if_necessary();
+	DEBUG(DB_FSYSCALL, "Reading from file handle %d in process %d\n", fd, curthread->t_pid);
+
+	struct lock *file_table_lock = runningprocesses[curthread->t_pid]->p_file_table_lock;
+	struct fd **file_table = runningprocesses[curthread->t_pid]->p_file_table;
 
 	// check arguments
 	if (as_valid_ptr(buf) != 0) { // check that the buffer is a valid ptr
@@ -40,7 +42,7 @@ int sys_read(int fd, void *buf, size_t buflen, int *err) {
 	if (fd == 0 && file_table[fd] == NULL) {
 		DEBUG(DB_FSYSCALL, "Opening stdin because it isn't open yet.\n");
 
-		*err = _open(fd, "con:", O_RDONLY, 0);
+		*err = _open(file_table, fd, "con:", O_RDONLY, 0);
 
 		if (*err != 0) goto error;
 	}
@@ -92,8 +94,10 @@ error:
 
 int sys_write(int fd, const void *buf, size_t nbytes, int *err) {
 
-	// TODO move this to process initialization
-	initialize_file_table_if_necessary();
+	DEBUG(DB_FSYSCALL, "Writing to file handle %d in process %d\n", fd, curthread->t_pid);
+
+	struct lock *file_table_lock = runningprocesses[curthread->t_pid]->p_file_table_lock;
+	struct fd **file_table = runningprocesses[curthread->t_pid]->p_file_table;
 
 	// check arguments
 	if (as_valid_ptr(buf) != 0) { // check that the buffer is a valid ptr
@@ -117,7 +121,7 @@ int sys_write(int fd, const void *buf, size_t nbytes, int *err) {
 	if ((fd == 1 || fd == 2) && file_table[fd] == NULL) {
 		DEBUG(DB_FSYSCALL, "Opening %s because it isn't open yet.\n", (fd == 1 ? "stdout" : "stderr"));
 
-		*err = _open(fd, "con:", O_WRONLY, 0);
+		*err = _open(file_table, fd, "con:", O_WRONLY, 0);
 
 		if (*err != 0) goto error;
 	}
