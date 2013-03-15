@@ -116,7 +116,6 @@ void process_remove(pid_t pid) {
 
 
 pid_t sys_fork(struct trapframe *tf, int *errorcode) {
-	DEBUG(DB_PROCESSES, "Starting sys_fork");
 	// TODO - possible disable interrupts
 	int spl = splhigh();
 	struct addrspace *newAddrspace = NULL;
