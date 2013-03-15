@@ -14,7 +14,7 @@ int sys_reboot(int code);
 
 int sys_open(const char *filename, int flags, int mode, int *err);
 int _open(struct fd *file_table[], int fd, const char *filename, int flags, int mode);
-int sys_close(int fd, int *err);
+int sys_close(int fd);
 void _close(struct fd *file_table[], int fd);
 int sys_read(int fd, void *buf, size_t buflen, int *err);
 int sys_write(int fd, const void *buf, size_t nbytes, int *err);

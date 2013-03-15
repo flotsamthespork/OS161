@@ -1,5 +1,6 @@
 #include <syscall.h>
 
+#include <addrspace.h>
 #include <curthread.h>
 #include <fd.h>
 #include <kern/errno.h>
@@ -21,8 +22,8 @@ int sys_read(int fd, void *buf, size_t buflen, int *err) {
 	struct fd **file_table = runningprocesses[curthread->t_pid]->p_file_table;
 
 	// check arguments
-	if (as_valid_ptr(buf) != 0) { // check that the buffer is a valid ptr
-		DEBUG(DB_FSYSCALL, "Invalid buffer %x given for reading.\n", buf);
+	if (as_valid_ptr((vaddr_t) buf) != 0) { // check that the buffer is a valid ptr
+		DEBUG(DB_FSYSCALL, "Invalid buffer %x given for reading.\n", (unsigned int) buf);
 
 		*err = EFAULT;
 		goto error;
@@ -100,8 +101,8 @@ int sys_write(int fd, const void *buf, size_t nbytes, int *err) {
 	struct fd **file_table = runningprocesses[curthread->t_pid]->p_file_table;
 
 	// check arguments
-	if (as_valid_ptr(buf) != 0) { // check that the buffer is a valid ptr
-		DEBUG(DB_FSYSCALL, "Invalid buffer %x given for reading.\n", buf);
+	if (as_valid_ptr((vaddr_t) buf) != 0) { // check that the buffer is a valid ptr
+		DEBUG(DB_FSYSCALL, "Invalid buffer %x given for reading.\n", (unsigned int) buf);
 
 		*err = EFAULT;
 		goto error;
@@ -142,7 +143,7 @@ int sys_write(int fd, const void *buf, size_t nbytes, int *err) {
 	}
 
 	// prepare for output
-	struct uio *output = constructUio(UIO_WRITE, buf, nbytes, file_table[fd]->position);
+	struct uio *output = constructUio(UIO_WRITE, (void *) buf, nbytes, file_table[fd]->position);
 
 	// perform the actual write
 	*err = VOP_WRITE(file_table[fd]->node, output);

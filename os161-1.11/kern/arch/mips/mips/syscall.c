@@ -80,15 +80,15 @@ mips_syscall(struct trapframe *tf)
 	    	break;
 
 	    case SYS_close:
-	    	retval = sys_close(tf->tf_a0, &err);
+	    	err = sys_close(tf->tf_a0);
 	    	break;
 
 	    case SYS_read:
-	    	retval = sys_read(tf->tf_a0, tf->tf_a1, tf->tf_a2, &err);
+	    	retval = sys_read(tf->tf_a0, (void *) tf->tf_a1, tf->tf_a2, &err);
 	    	break;
 
 	    case SYS_write:
-	    	retval = sys_write(tf->tf_a0, tf->tf_a1, tf->tf_a2, &err);
+	    	retval = sys_write(tf->tf_a0, (const void *) tf->tf_a1, tf->tf_a2, &err);
 	    	break;
 
 	    case SYS_fork:
@@ -101,7 +101,7 @@ mips_syscall(struct trapframe *tf)
 	    	break;
 
 	    case SYS_waitpid:
-	    	retval = sys_waitpid(tf->tf_a0, tf->tf_a1, tf->tf_a2, &err);
+	    	retval = sys_waitpid(tf->tf_a0, (int *) tf->tf_a1, tf->tf_a2, &err);
 	    	break;
 
 	    case SYS__exit:
@@ -109,7 +109,7 @@ mips_syscall(struct trapframe *tf)
 	    	break;
 
 	    case SYS_execv:
-	    	err = sys_execv(tf->tf_a0, tf->tf_a1);
+	    	err = sys_execv((const char *) tf->tf_a0, (char **) tf->tf_a1);
 	    	break;
 
 #endif
