@@ -100,7 +100,7 @@ static int copyArgsOut(char **src, char *dst, int argc, int *offset) {
 			}
 
 			// Try to copy the pointer into dst
-			error = copyout(ptr, dst - totalSize + (i*4), 4);
+			error = copyout(ptr, (userptr_t)(dst - totalSize + (i*4)), 4);
 			if (error) {
 				kfree(ptr);
 				return error;
@@ -109,7 +109,7 @@ static int copyArgsOut(char **src, char *dst, int argc, int *offset) {
 			argSize += padlen;
 		} else {
 			// Try to copy NULL into the arguments array
-			error = copyout(&nullPtr, dst - totalSize + (i*4), 4);
+			error = copyout(&nullPtr, (userptr_t)(dst - totalSize + (i*4)), 4);
 			if (error) {
 				kfree(ptr);
 				return error;
@@ -182,17 +182,6 @@ runprogram(char *progname)
 
 #if OPT_A2
 
-	/* Get us a process */
-	struct process *proc;
-	int err = process_create(&proc);
-
-	if (err != 0) {
-		// TODO handle me
-		kprintf("process_create FAILED IN RUNPROGRAM! OH DEAR LAWD!\n");
-	} else {
-		curthread->t_pid = proc->p_pid;
-	}
-
 	/* Copy arguments */
 	result = copyArgsOut(argv, (char *) stackptr - 8, argc, &offset);
 	if (result) {
@@ -200,7 +189,7 @@ runprogram(char *progname)
 	}
 
 	/* Warp to user mode. */
-	md_usermode(argc, (stackptr - offset - 8), //argv,
+	md_usermode(argc, (userptr_t)(stackptr - offset - 8), //argv,
 		    (stackptr - offset - 12), entrypoint);
 #else
 	/* Warp to user mode. */

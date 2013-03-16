@@ -173,6 +173,7 @@ int sys_execv(const char *program, char **args) {
 	vaddr_t entrypoint, stackptr;
 	int result, argc, argsize;
 	char *kargs;
+	char *progname;
 
 	if (program == NULL) {
 		return EFAULT;
@@ -197,12 +198,21 @@ int sys_execv(const char *program, char **args) {
 		return result;
 	}
 
+	progname = kstrdup(program);
+	if (progname == NULL) {
+		kfree(kargs);
+		return ENOMEM;
+	}
+
 	/* Open the file. */
-	result = vfs_open(program, O_RDONLY, &v);
+	result = vfs_open(progname, O_RDONLY, &v);
 	if (result) {
 		kfree(kargs);
+		kfree(progname);
 		return result;
 	}
+
+	kfree(progname);
 
 	// Destroy the old address space
 	as_destroy(curthread->t_vmspace);
@@ -243,19 +253,17 @@ int sys_execv(const char *program, char **args) {
 		return result;
 	}
 
-	// TODO - copy the arguments from kbuffer to stack
 	result = copyArgsOut(kargs, (char*)(stackptr-argsize-8), argc, argsize);
+	kfree(kargs);
 	if (result) {
-		kfree(kargs);
 		return result;
 	}
 
 	/* Warp to user mode. */
-	md_usermode(argc, (char**)(stackptr - argsize - 8), //argv,
-		    (stackptr - argsize - 12), entrypoint);
+	md_usermode(argc, (userptr_t)(stackptr - argsize - 8), //argv,
+		    (vaddr_t)(stackptr - argsize - 12), entrypoint);
 	
 	/* md_usermode does not return */
 	panic("md_usermode returned\n");
-	kfree(kargs);
 	return EINVAL;
 }

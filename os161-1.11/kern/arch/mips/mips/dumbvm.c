@@ -318,9 +318,6 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 #if OPT_A2
 int as_valid_ptr(vaddr_t ptr) {
 	vaddr_t vbase1, vtop1, vbase2, vtop2, stackbase, stacktop;
-	paddr_t paddr;
-	int i;
-	u_int32_t ehi, elo;
 	struct addrspace *as;
 	int spl;
 

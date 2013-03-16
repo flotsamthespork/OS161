@@ -16,6 +16,9 @@
 #include <vm.h>
 #include <syscall.h>
 #include <version.h>
+#include <process.h>
+
+#include "opt-A1.h"
 
 /*
  * These two pieces of data are maintained by the makefiles and build system.
@@ -80,6 +83,11 @@ boot(void)
 
 	/* Default bootfs - but ignore failure, in case emu0 doesn't exist */
 	vfs_setbootfs("emu0");
+
+#if OPT_A2
+	struct process *mainProcess;
+	process_create_for_id(0, &mainProcess);
+#endif
 
 
 	/*

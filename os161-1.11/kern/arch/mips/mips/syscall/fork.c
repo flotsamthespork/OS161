@@ -48,6 +48,10 @@ int process_create(struct process **dst) {
 		return EAGAIN;
 	}
 
+	return process_create_for_id(pid, dst);
+}
+
+int process_create_for_id(pid_t pid, struct process **dst) {
 	*dst = kmalloc(sizeof(struct process));
 	if (dst == NULL) {
 		return ENOMEM;
@@ -116,8 +120,6 @@ void process_remove(pid_t pid) {
 
 
 pid_t sys_fork(struct trapframe *tf, int *errorcode) {
-	// TODO - possible disable interrupts
-	int spl = splhigh();
 	struct addrspace *newAddrspace = NULL;
 	struct process *newProcess = NULL;
 	struct thread *newThread = NULL;
@@ -125,7 +127,6 @@ pid_t sys_fork(struct trapframe *tf, int *errorcode) {
 	pid_t pid = -1;
 
 	if (newTrapFrame == NULL) {
-		splx(spl);
 		*errorcode = ENOMEM;
 		return -1;
 	}
@@ -134,7 +135,6 @@ pid_t sys_fork(struct trapframe *tf, int *errorcode) {
 	*errorcode = as_copy(curthread->t_vmspace, &newAddrspace);
 	if (*errorcode != 0) {
 		kfree(newTrapFrame);
-		splx(spl);
 		return -1;
 	}
 
@@ -147,7 +147,6 @@ pid_t sys_fork(struct trapframe *tf, int *errorcode) {
 	if (*errorcode != 0) {
 		kfree(newTrapFrame);
 		kfree(newAddrspace);
-		splx(spl);
 		return -1;
 	}
 
@@ -180,7 +179,6 @@ pid_t sys_fork(struct trapframe *tf, int *errorcode) {
 		kfree(newAddrspace);
 		process_remove(pid);
 
-		splx(spl);
 		return -1;
 	}
 
@@ -194,7 +192,6 @@ pid_t sys_fork(struct trapframe *tf, int *errorcode) {
 		kfree(newTrapFrame);
 		kfree(newAddrspace);
 		process_remove(pid);
-		splx(spl);
 		return -1;
 	}
 
@@ -202,7 +199,6 @@ pid_t sys_fork(struct trapframe *tf, int *errorcode) {
 	newProcess->p_thread = newThread;
 
 	*errorcode = 0;
-	splx(spl);
 	return pid;
 
 }

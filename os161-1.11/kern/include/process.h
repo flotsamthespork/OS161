@@ -13,7 +13,7 @@ struct process {
 	int p_finished;
 	int p_exitcode;
 	struct cv* p_exitcv;
-	struct cv* p_exitlock;
+	struct lock* p_exitlock;
 
 	struct lock *p_file_table_lock; // do I even need a lock here?
 	struct fd *p_file_table[MAX_FILE_HANDLES];
@@ -22,6 +22,8 @@ struct process {
 int process_create(struct process **dst);
 
 void process_remove(pid_t pid);
+
+int process_create_for_id(pid_t pid, struct process **dst);
 
 extern struct process *runningprocesses[];
 

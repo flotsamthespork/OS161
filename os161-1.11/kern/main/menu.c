@@ -18,6 +18,8 @@
 #include "opt-sfs.h"
 #include "opt-net.h"
 
+#include "opt-A1.h"
+
 #define _PATH_SHELL "/bin/sh"
 
 #define MAXMENUARGS  16
@@ -69,7 +71,11 @@ cmd_progthread(void *ptr, unsigned long nargs)
 
 	strcpy(progname, args[0]);
 
+#if OPT_A2
 	result = runprogram(progname, nargs, args);
+#else
+	result = runprogram(progname);
+#endif
 	if (result) {
 		kprintf("Running program %s failed: %s\n", args[0],
 			strerror(result));
