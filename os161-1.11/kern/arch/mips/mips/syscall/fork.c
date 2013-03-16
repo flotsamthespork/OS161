@@ -38,6 +38,7 @@ void child_fork(void *asPtr, unsigned long tfPtr) {
 
 int process_create(struct process **dst) {
 	int pid;
+	lock_acquire(process_lock);
 	for (pid = 1; pid < MAX_PROCESSES; pid++) {
 		if (runningprocesses[pid] == NULL) {
 			break;
@@ -45,21 +46,28 @@ int process_create(struct process **dst) {
 	}
 
 	if (pid == MAX_PROCESSES) {
+		lock_release(process_lock);
 		return EAGAIN;
 	}
 
-	return process_create_for_id(pid, dst);
+	return process_create_for_id(pid, dst, process_lock);
 }
 
-int process_create_for_id(pid_t pid, struct process **dst) {
+int process_create_for_id(pid_t pid, struct process **dst, struct lock *p_lock) {
 	*dst = kmalloc(sizeof(struct process));
 	if (dst == NULL) {
+		if (p_lock != NULL) {
+			lock_release(p_lock);
+		}
 		return ENOMEM;
 	}
 
 	(*dst)->p_exitcv = cv_create("");
 	if ((*dst)->p_exitcv == NULL) {
 		kfree(*dst);
+		if (p_lock != NULL) {
+			lock_release(p_lock);
+		}
 		return ENOMEM;
 	}
 
@@ -67,6 +75,9 @@ int process_create_for_id(pid_t pid, struct process **dst) {
 	if ((*dst)->p_exitlock == NULL) {
 		kfree((*dst)->p_exitcv);
 		kfree(*dst);
+		if (p_lock != NULL) {
+			lock_release(p_lock);
+		}
 		return ENOMEM;
 	}
 
@@ -76,6 +87,10 @@ int process_create_for_id(pid_t pid, struct process **dst) {
 	(*dst)->p_parentpid = curthread->t_pid;
 	(*dst)->p_finished = 0;
 	(*dst)->p_exitcode = 0;
+
+	if (p_lock != NULL) {
+		lock_release(p_lock);
+	}
 
 	// initialize the file table and its lock
 	(*dst)->p_file_table_lock = lock_create("file_table_lock");
@@ -100,6 +115,8 @@ void process_remove(pid_t pid) {
 	struct process *process = runningprocesses[pid];
 	assert(process != NULL);
 
+	lock_acquire(process_lock);
+
 	lock_destroy(process->p_exitlock);
 	cv_destroy(process->p_exitcv);
 
@@ -116,6 +133,8 @@ void process_remove(pid_t pid) {
 
 	kfree(process);
 	runningprocesses[pid] = NULL;
+
+	lock_release(process_lock);
 }
 
 
@@ -152,6 +171,8 @@ pid_t sys_fork(struct trapframe *tf, int *errorcode) {
 
 	pid = newProcess->p_pid;
 
+	lock_acquire(process_lock);
+
 	// copy the file table
 	struct fd **parent_file_table = runningprocesses[curthread->t_pid]->p_file_table;
 	struct fd **child_file_table = newProcess->p_file_table;
@@ -175,12 +196,15 @@ pid_t sys_fork(struct trapframe *tf, int *errorcode) {
 			}
 		}
 
+		lock_release(process_lock);
+
 		kfree(newTrapFrame);
 		kfree(newAddrspace);
 		process_remove(pid);
 
 		return -1;
 	}
+	lock_release(process_lock);
 
 	// Actually fork to a new thread
 	*errorcode = thread_fork("TODO - Thread Name",

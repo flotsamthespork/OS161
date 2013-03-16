@@ -19,6 +19,8 @@ int sys_open(const char *filename, int flags, int mode, int *err) {
 		return -1;
 	}
 
+	lock_acquire(process_lock);
+
 	int retval = -1;
 
 	DEBUG(DB_FSYSCALL, "Opening %s in process %d\n", filename, curthread->t_pid);
@@ -46,6 +48,7 @@ int sys_open(const char *filename, int flags, int mode, int *err) {
 	}
 
 	lock_release(file_table_lock);
+	lock_release(process_lock);
 
 	return retval;
 

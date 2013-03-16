@@ -18,6 +18,8 @@ int sys_read(int fd, void *buf, size_t buflen, int *err) {
 
 	DEBUG(DB_FSYSCALL, "Reading from file handle %d in process %d\n", fd, curthread->t_pid);
 
+	lock_acquire(process_lock);
+
 	struct lock *file_table_lock = runningprocesses[curthread->t_pid]->p_file_table_lock;
 	struct fd **file_table = runningprocesses[curthread->t_pid]->p_file_table;
 
@@ -78,6 +80,8 @@ int sys_read(int fd, void *buf, size_t buflen, int *err) {
 
 		lock_release(file_table_lock);
 
+		lock_release(process_lock);
+
 		return length;
 	} else {
 		goto error;
@@ -89,6 +93,8 @@ error:
 		lock_release(file_table_lock);
 	}
 
+	lock_release(process_lock);
+
 	return -1;
 
 }
@@ -96,6 +102,8 @@ error:
 int sys_write(int fd, const void *buf, size_t nbytes, int *err) {
 
 	DEBUG(DB_FSYSCALL, "Writing to file handle %d in process %d\n", fd, curthread->t_pid);
+
+	lock_acquire(process_lock);
 
 	struct lock *file_table_lock = runningprocesses[curthread->t_pid]->p_file_table_lock;
 	struct fd **file_table = runningprocesses[curthread->t_pid]->p_file_table;
@@ -157,6 +165,8 @@ int sys_write(int fd, const void *buf, size_t nbytes, int *err) {
 
 		lock_release(file_table_lock);
 
+		lock_release(process_lock);
+
 		return length;
 	} else {
 		goto error;
@@ -167,6 +177,8 @@ error:
 	if (lock_do_i_hold(file_table_lock)) {
 		lock_release(file_table_lock);
 	}
+
+	lock_release(process_lock);
 
 	return -1;
 

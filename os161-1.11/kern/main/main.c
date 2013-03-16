@@ -20,6 +20,10 @@
 
 #include "opt-A1.h"
 
+#if OPT_A2
+struct lock *process_lock;
+#endif
+
 /*
  * These two pieces of data are maintained by the makefiles and build system.
  * buildconfig is the name of the config file the kernel was configured with.
@@ -86,7 +90,8 @@ boot(void)
 
 #if OPT_A2
 	struct process *mainProcess;
-	process_create_for_id(0, &mainProcess);
+	process_create_for_id(0, &mainProcess, NULL);
+	process_lock = lock_create("");
 #endif
 
 

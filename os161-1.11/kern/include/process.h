@@ -23,8 +23,9 @@ int process_create(struct process **dst);
 
 void process_remove(pid_t pid);
 
-int process_create_for_id(pid_t pid, struct process **dst);
+int process_create_for_id(pid_t pid, struct process **dst, struct lock *p_lock);
 
 extern struct process *runningprocesses[];
+extern struct lock *process_lock;
 
 #endif

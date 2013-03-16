@@ -8,6 +8,8 @@
 
 void sys__exit(int exitcode) {
 
+	lock_acquire(process_lock);
+
 	struct process *process = runningprocesses[curthread->t_pid];
 	if (process != NULL) {
 		lock_acquire(process->p_exitlock);
@@ -16,6 +18,8 @@ void sys__exit(int exitcode) {
 		cv_broadcast(process->p_exitcv, process->p_exitlock);
 		lock_release(process->p_exitlock);
 	}
+
+	lock_release(process_lock);
 
 	thread_exit();
 

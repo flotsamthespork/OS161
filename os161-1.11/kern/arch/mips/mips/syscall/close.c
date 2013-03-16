@@ -15,6 +15,8 @@ int sys_close(int fd) {
 
 	DEBUG(DB_FSYSCALL, "Closing file handle %d in process %d\n", fd, curthread->t_pid);
 
+	lock_acquire(process_lock);
+
 	struct lock *file_table_lock = runningprocesses[curthread->t_pid]->p_file_table_lock;
 	struct fd **file_table = runningprocesses[curthread->t_pid]->p_file_table;
 
@@ -39,6 +41,7 @@ int sys_close(int fd) {
 	}
 
 	lock_release(file_table_lock);
+	lock_release(process_lock);
 
 	return retval;
 
