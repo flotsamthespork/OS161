@@ -4,6 +4,7 @@ depend.mk
 os161-1.11/kern/compile/*
 root/kernel*
 a2-test-scripts
+a3-test-scripts
 
 os161-1.11/testbin/add/add
 os161-1.11/testbin/argtest/argtest
