@@ -4,6 +4,8 @@
 #include <addrspace.h>
 #include <vm.h>
 
+#include "opt-A3.h"
+
 /*
  * Note! If OPT_DUMBVM is set, as is the case until you start the VM
  * assignment, this file is not compiled or linked or in any way
@@ -129,3 +131,10 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 	return 0;
 }
 
+
+#if OPT_A3
+int as_valid_ptr(vaddr_t ptr) {
+	// TODO - write this
+	return 0;
+}
+#endif
