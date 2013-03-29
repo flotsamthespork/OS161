@@ -1,6 +1,7 @@
 #ifndef _VM_H_
 #define _VM_H_
 
+#include <types.h>
 #include <machine/vm.h>
 
 /*

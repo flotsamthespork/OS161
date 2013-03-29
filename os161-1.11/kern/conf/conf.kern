@@ -466,7 +466,8 @@ file		arch/mips/mips/syscall/waitpid.c
 file		arch/mips/mips/syscall/exit.c
 file		arch/mips/mips/syscall/execv.c
 defoption A3
-   file    vm/uw-vmstats.c
+file    	vm/uw-vmstats.c
+file		arch/mips/mips/vm.c
 defoption A4
 defoption A5
 
