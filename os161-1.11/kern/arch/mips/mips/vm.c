@@ -11,6 +11,14 @@
 
 #define DUMBVM_STACKPAGES    12
 
+static int next_tlb_idx = 0;
+
+static int get_tlb_replace_idx() {
+	int idx = next_tlb_idx;
+	next_tlb_idx = (next_tlb_idx + 1) % NUM_TLB;
+	return idx;
+}
+
 void vm_bootstrap() {
 	// TODO
 }
@@ -19,7 +27,7 @@ int vm_fault(int faulttype, vaddr_t faultaddress) {
 	// TODO
 	vaddr_t vbase1, vtop1, vbase2, vtop2, stackbase, stacktop;
 	paddr_t paddr;
-	int i;
+	int tlb_idx;
 	u_int32_t ehi, elo;
 	struct addrspace *as;
 	int spl;
@@ -91,22 +99,33 @@ int vm_fault(int faulttype, vaddr_t faultaddress) {
 	/* make sure it's page-aligned */
 	assert((paddr & PAGE_FRAME)==paddr);
 
-	for (i=0; i<NUM_TLB; i++) {
-		TLB_Read(&ehi, &elo, i);
-		if (elo & TLBLO_VALID) {
-			continue;
-		}
-		ehi = faultaddress;
-		elo = paddr | TLBLO_DIRTY | TLBLO_VALID;
-		DEBUG(DB_VM, "dumbvm: 0x%x -> 0x%x\n", faultaddress, paddr);
-		TLB_Write(ehi, elo, i);
-		splx(spl);
-		return 0;
-	}
+	// for (i=0; i<NUM_TLB; i++) {
+	// 	TLB_Read(&ehi, &elo, i);
+	// 	if (elo & TLBLO_VALID) {
+	// 		continue;
+	// 	}
+	// 	ehi = faultaddress;
+	// 	elo = paddr | TLBLO_DIRTY | TLBLO_VALID;
+	// 	DEBUG(DB_VM, "dumbvm: 0x%x -> 0x%x\n", faultaddress, paddr);
+	// 	TLB_Write(ehi, elo, i);
+	// 	splx(spl);
+	// 	return 0;
+	// }
 
-	kprintf("dumbvm: Ran out of TLB entries - cannot handle page fault\n");
+	tlb_idx = get_tlb_replace_idx();
+	// TLB_Read(&ehi, &elo, tlb_idx);
+
+	ehi = faultaddress;
+	elo = paddr | TLBLO_DIRTY | TLBLO_VALID;
+	DEBUG(DB_VM, "dumbvm: 0x%x -> 0x%x\n", faultaddress, paddr);
+	TLB_Write(ehi, elo, tlb_idx);
 	splx(spl);
-	return EFAULT;
+	return 0;
+
+
+	// kprintf("dumbvm: Ran out of TLB entries - cannot handle page fault\n");
+	// splx(spl);
+	// return EFAULT;
 }
 
 static
