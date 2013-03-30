@@ -19,6 +19,7 @@
 #include <process.h>
 
 #include "opt-A1.h"
+#include "opt-A3.h"
 
 #if OPT_A2
 struct lock *process_lock;
@@ -120,6 +121,9 @@ shutdown(void)
 
 	scheduler_shutdown();
 	thread_shutdown();
+#if OPT_A3
+	vm_shutdown();
+#endif
 }
 
 /*****************************************/

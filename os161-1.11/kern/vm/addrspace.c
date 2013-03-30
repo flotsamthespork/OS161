@@ -7,6 +7,7 @@
 #include <machine/tlb.h>
 #include <thread.h>
 #include <types.h>
+#include <uw-vmstats.h>
 
 #include "opt-A3.h"
 
@@ -104,6 +105,9 @@ as_activate(struct addrspace *as)
 	for (i=0; i<NUM_TLB; i++) {
 		TLB_Write(TLBHI_INVALID(i), TLBLO_INVALID(), i);
 	}
+
+	// TLB has been entirely invalidated
+	vmstats_inc(VMSTAT_TLB_INVALIDATE);
 
 	splx(spl);
 }

@@ -4,6 +4,8 @@
 #include <types.h>
 #include <machine/vm.h>
 
+#include "opt-A3.h"
+
 /*
  * VM system-related definitions.
  *
@@ -19,6 +21,10 @@
 
 /* Initialization function */
 void vm_bootstrap(void);
+
+#if OPT_A3
+void vm_shutdown(void);
+#endif
 
 /* Fault handling function called by trap code */
 int vm_fault(int faulttype, vaddr_t faultaddress);

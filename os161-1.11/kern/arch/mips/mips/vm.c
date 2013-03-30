@@ -8,6 +8,9 @@
 #include <machine/tlb.h>
 #include <thread.h>
 #include <types.h>
+#include <uw-vmstats.h>
+
+#include "opt-A3.h"
 
 #define DUMBVM_STACKPAGES    12
 
@@ -21,7 +24,15 @@ static int get_tlb_replace_idx() {
 
 void vm_bootstrap() {
 	// TODO
+	vmstats_init();
 }
+
+#if OPT_A3
+void vm_shutdown() {
+	// TODO
+	vmstats_print();
+}
+#endif
 
 int vm_fault(int faulttype, vaddr_t faultaddress) {
 	// TODO
@@ -112,8 +123,20 @@ int vm_fault(int faulttype, vaddr_t faultaddress) {
 	// 	return 0;
 	// }
 
+	// Fault occured, but it was just a TLB Miss and not a bad address
+	vmstats_inc(VMSTAT_TLB_FAULT);
+
 	tlb_idx = get_tlb_replace_idx();
-	// TLB_Read(&ehi, &elo, tlb_idx);
+	TLB_Read(&ehi, &elo, tlb_idx);
+
+	if (elo & TLBLO_VALID) {
+		// Fault occurred and a TLB entry that is currently in use is
+		// being replaced with a new one.
+		vmstats_inc(VMSTAT_TLB_FAULT_REPLACE);
+	} else {
+		// Fault occurred and we replaced an invalid TLB entry.
+		vmstats_inc(VMSTAT_TLB_FAULT_FREE);
+	}
 
 	ehi = faultaddress;
 	elo = paddr | TLBLO_DIRTY | TLBLO_VALID;
