@@ -1,0 +1,14 @@
+#!/bin/bash
+
+ASST=""
+
+for VAR in "$@"
+do
+	ASST=$VAR
+done
+
+if [[ -z "$ASST" ]]; then
+	echo "Expects assignment number as parameter."
+else
+	(cd root && cs350-gdb kernel -d ../os161-1.11/kern/compile/ASST$ASST -x ../.gdbinit)
+fi

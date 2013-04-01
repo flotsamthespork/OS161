@@ -2,6 +2,7 @@
 
 RUN=0
 BUILD=1
+DEBUG=0
 ASST=""
 
 for VAR in "$@"
@@ -10,6 +11,9 @@ do
 		RUN=1
 	elif [[ "$VAR" = "-s" ]]; then
 		BUILD=0
+	elif [[ "$VAR" = "-d" ]]; then
+		RUN=1
+		DEBUG=1	
 	else
 		ASST=$VAR
 	fi
@@ -36,6 +40,10 @@ else
 	fi
 
 	if [[ "$RUN" -eq 1 ]]; then
-		(cd root && sys161 kernel)
+		if [[ "$DEBUG" -eq 1 ]]; then
+			(cd root && sys161 -w kernel)
+		else
+			(cd root && sys161 kernel)
+		fi
 	fi
 fi
