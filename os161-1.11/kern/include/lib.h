@@ -50,6 +50,7 @@
 #define DB_NETFS       0x400
 #define DB_KMALLOC     0x800
 #define DB_FSYSCALL    0x1000
+#define DB_COREMAP     0x2000
 
 extern u_int32_t dbflags;
 

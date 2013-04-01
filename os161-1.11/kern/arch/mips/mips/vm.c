@@ -1,6 +1,7 @@
 #include <vm.h>
 
 #include <addrspace.h>
+#include <coremap.h>
 #include <curthread.h>
 #include <kern/errno.h>
 #include <lib.h>
@@ -23,7 +24,8 @@ static int get_tlb_replace_idx() {
 }
 
 void vm_bootstrap() {
-	// TODO
+	coremap_bootstrap();
+
 	vmstats_init();
 }
 
@@ -151,34 +153,24 @@ int vm_fault(int faulttype, vaddr_t faultaddress) {
 	// return EFAULT;
 }
 
-static
-paddr_t
-getppages(unsigned long npages)
-{
-	int spl;
-	paddr_t addr;
+vaddr_t alloc_kpages(int npages) {
+	int spl = splhigh();
 
-	spl = splhigh();
-
-	addr = ram_stealmem(npages);
+	paddr_t paddr = coremap_getpages(npages);
 
 	splx(spl);
-	return addr;
-}
 
-vaddr_t alloc_kpages(int npages) {
-	// TODO
-
-	paddr_t pa;
-	pa = getppages(npages);
-	if (pa==0) {
-		return 0;
+	if (paddr == (paddr_t) NULL) {
+		return (paddr_t) NULL;
+	} else {
+		return PADDR_TO_KVADDR(paddr);
 	}
-	return PADDR_TO_KVADDR(pa);
 }
 
 void free_kpages(vaddr_t addr) {
-	// TODO
+	int spl = splhigh();
 
-	(void)addr;
+	coremap_freepages(KVADDR_TO_PADDR(addr));
+
+	splx(spl);
 }

@@ -1,5 +1,6 @@
 #include <addrspace.h>
 
+#include <coremap.h>
 #include <curthread.h>
 #include <kern/errno.h>
 #include <lib.h>
@@ -86,7 +87,14 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 void
 as_destroy(struct addrspace *as)
 {
-	// TODO
+	assert(as != NULL);
+	assert(as->as_pbase1 != (paddr_t) NULL);
+	assert(as->as_pbase2 != (paddr_t) NULL);
+	assert(as->as_stackpbase != (paddr_t) NULL);
+
+	coremap_freepages(as->as_pbase1);
+	coremap_freepages(as->as_pbase2);
+	coremap_freepages(as->as_stackpbase);
 	
 	kfree(as);
 }
@@ -166,15 +174,7 @@ static
 paddr_t
 getppages(unsigned long npages)
 {
-	int spl;
-	paddr_t addr;
-
-	spl = splhigh();
-
-	addr = ram_stealmem(npages);
-
-	splx(spl);
-	return addr;
+	return coremap_getpages(npages);
 }
 
 int
