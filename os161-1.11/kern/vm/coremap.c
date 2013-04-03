@@ -6,7 +6,7 @@
 #include <thread.h>
 #include <vm.h>
 
-struct page *coremap;
+struct corepage *coremap;
 
 // TODO are these required outside this file?
 
@@ -29,8 +29,8 @@ void coremap_bootstrap() {
 	coremap_size = last / PAGE_SIZE;
 
 	// manually allocate the coremap
-	coremap = (struct page *) PADDR_TO_KVADDR(first);
-	first += coremap_size * sizeof (struct page);
+	coremap = (struct corepage *) PADDR_TO_KVADDR(first);
+	first += coremap_size * sizeof (struct corepage);
 
 	// initialize the coremap
 	unsigned int i;
@@ -51,16 +51,22 @@ void coremap_bootstrap() {
 
 	// create a lock for the coremap
 	coremap_lock = lock_create("coremap_lock");
-	if (coremap_lock == NULL) panic("Unable to instantiate coremap_lock");
+	if (coremap_lock == NULL) panic("Unable to instantiate coremap_lock.\n");
 
 	DEBUG(DB_COREMAP, "%u of %u pages in use after coremap initialization.\n", coremap_pages_in_use, coremap_size);
 
 	coremap_initialized = 1;
 }
 
+void coremap_shutdown() {
+	// TODO do we need to do anything to the coremap itself?
+
+	lock_destroy(coremap_lock);
+}
+
 paddr_t coremap_getpages(unsigned long npages) {
-	if (npages < 1) {
-		panic("Attempting to get %lu pages from the coremap.\n", npages);
+	if (npages == 0) {
+		panic("Attempting to get 0 pages from the coremap.\n");
 	}
 
 	paddr_t paddr;

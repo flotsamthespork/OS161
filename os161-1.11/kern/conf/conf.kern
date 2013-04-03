@@ -468,7 +468,8 @@ file		arch/mips/mips/syscall/execv.c
 defoption A3
 file		vm/coremap.c
 file    	vm/uw-vmstats.c
-file		arch/mips/mips/vm.c
+file		vm/swapfile.c
+file		vm/vm.c
 defoption A4
 defoption A5
 

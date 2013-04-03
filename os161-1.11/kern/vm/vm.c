@@ -7,6 +7,7 @@
 #include <lib.h>
 #include <machine/spl.h>
 #include <machine/tlb.h>
+#include <swapfile.h>
 #include <thread.h>
 #include <types.h>
 #include <uw-vmstats.h>
@@ -25,13 +26,16 @@ static int get_tlb_replace_idx() {
 
 void vm_bootstrap() {
 	coremap_bootstrap();
+	swapfile_bootstrap();
 
 	vmstats_init();
 }
 
 #if OPT_A3
 void vm_shutdown() {
-	// TODO
+	coremap_shutdown();
+	swapfile_shutdown();
+
 	vmstats_print();
 }
 #endif

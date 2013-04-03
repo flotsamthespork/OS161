@@ -51,6 +51,7 @@
 #define DB_KMALLOC     0x800
 #define DB_FSYSCALL    0x1000
 #define DB_COREMAP     0x2000
+#define DB_SWAPFILE    0x4000
 
 extern u_int32_t dbflags;
 

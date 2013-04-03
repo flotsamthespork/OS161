@@ -74,7 +74,7 @@ boot(void)
 	kprintf("%s", harvard_copyright);
 	kprintf("\n");
 
-	kprintf("Put-your-group-name-here's system version %s (%s #%d)\n", 
+	kprintf("Harrison-changed-this-and-he-hopes-Patrick-doesn't-notice's system version %s (%s #%d)\n",
 		GROUP_VERSION, buildconfig, buildversion);
 	kprintf("\n");
 
@@ -94,7 +94,6 @@ boot(void)
 	process_create_for_id(0, &mainProcess, NULL);
 	process_lock = lock_create("");
 #endif
-
 
 	/*
 	 * Make sure various things aren't screwed up.

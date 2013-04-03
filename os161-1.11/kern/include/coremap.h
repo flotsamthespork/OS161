@@ -12,7 +12,7 @@ enum page_state {
 	FIXED
 };
 
-struct page {
+struct corepage {
 	// the address space and virtual address to which the page is mapped
 	struct addrspace *addrspace;
 	vaddr_t addr;
@@ -26,10 +26,11 @@ struct page {
 };
 
 void coremap_bootstrap();
+void coremap_shutdown();
 
 paddr_t coremap_getpages(unsigned long npages);
 void coremap_freepages(paddr_t paddr);
 
-extern struct page *coremap;
+extern struct corepage *coremap;
 
 #endif
