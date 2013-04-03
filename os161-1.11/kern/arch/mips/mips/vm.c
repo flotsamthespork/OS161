@@ -38,12 +38,16 @@ void vm_shutdown() {
 
 int vm_fault(int faulttype, vaddr_t faultaddress) {
 	// TODO
-	vaddr_t vbase1, vtop1, vbase2, vtop2, stackbase, stacktop;
 	paddr_t paddr;
 	int tlb_idx;
 	u_int32_t ehi, elo;
+
+
 	struct addrspace *as;
 	int spl;
+	int i;
+	int permissions;
+	vaddr_t vbase, vtop;
 
 	spl = splhigh();
 
@@ -53,9 +57,6 @@ int vm_fault(int faulttype, vaddr_t faultaddress) {
 
 	switch (faulttype) {
 	    case VM_FAULT_READONLY:
-		/* We always create pages read-write, so we can't get this */
-		panic("dumbvm: got VM_FAULT_READONLY\n");
-		break;
 	    case VM_FAULT_READ:
 	    case VM_FAULT_WRITE:
 		break;
@@ -71,22 +72,33 @@ int vm_fault(int faulttype, vaddr_t faultaddress) {
 		 * fault early in boot. Return EFAULT so as to panic
 		 * instead of getting into an infinite faulting loop.
 		 */
+		 splx(spl);
 		return EFAULT;
 	}
 
 	/* Assert that the address space has been set up properly. */
-	assert(as->as_vbase1 != 0);
-	assert(as->as_pbase1 != 0);
-	assert(as->as_npages1 != 0);
-	assert(as->as_vbase2 != 0);
-	assert(as->as_pbase2 != 0);
-	assert(as->as_npages2 != 0);
 	assert(as->as_stackpbase != 0);
-	assert((as->as_vbase1 & PAGE_FRAME) == as->as_vbase1);
-	assert((as->as_pbase1 & PAGE_FRAME) == as->as_pbase1);
-	assert((as->as_vbase2 & PAGE_FRAME) == as->as_vbase2);
-	assert((as->as_pbase2 & PAGE_FRAME) == as->as_pbase2);
 	assert((as->as_stackpbase & PAGE_FRAME) == as->as_stackpbase);
+
+	for (i = 0; i < as->as_nregions; i++) {
+
+		assert(as->as_vbase[i] != 0);
+		assert(as->as_pbase[i] != 0);
+		assert(as->as_npages[i] != 0);
+		assert((as->as_vbase[i] & PAGE_FRAME) == as->as_vbase[i]);
+		assert((as->as_pbase[i] & PAGE_FRAME) == as->as_pbase[i]);
+
+		vbase = as->as_vbase[i];
+		vtop = vbase + as->as_npages[i] * PAGE_SIZE;
+		if (faultaddress >= vbase && faultaddress < vtop) {
+			paddr = (faultaddress - vbase) + as->as_pbase[i];
+			break;
+		}
+	}
+
+	if (i < as->as_nregions) {
+		// TODO - check stack 
+	}
 
 	vbase1 = as->as_vbase1;
 	vtop1 = vbase1 + as->as_npages1 * PAGE_SIZE;

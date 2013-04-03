@@ -6,6 +6,12 @@
 
 #include "opt-A2.h"
 
+
+#define MAX_REGIONS (3)
+#define P_READ		(0x1)
+#define P_WRITE		(0x2)
+#define P_EXEC		(0x4)
+
 struct vnode;
 
 /* 
@@ -26,12 +32,21 @@ struct addrspace {
 	paddr_t as_stackpbase;
 #else
 	// TODO
-	vaddr_t as_vbase1;
-	paddr_t as_pbase1;
-	size_t as_npages1;
-	vaddr_t as_vbase2;
-	paddr_t as_pbase2;
-	size_t as_npages2;
+	// vaddr_t as_vbase1;
+	// paddr_t as_pbase1;
+	// size_t as_npages1;
+	// int as_permissions1;
+	// vaddr_t as_vbase2;
+	// paddr_t as_pbase2;
+	// size_t as_npages2;
+	// int as_permissions2;
+	// paddr_t as_stackpbase;
+
+	vaddr_t as_vbase[MAX_REGIONS];
+	paddr_t as_pbase[MAX_REGIONS];
+	size_t as_npages[MAX_REGIONS];
+	int as_permissions[MAX_REGIONS];
+	int as_nregions;
 	paddr_t as_stackpbase;
 #endif
 };

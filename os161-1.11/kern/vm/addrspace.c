@@ -29,13 +29,8 @@ as_create(void)
 	}
 
 	// TODO start
-	as->as_vbase1 = 0;
-	as->as_pbase1 = 0;
-	as->as_npages1 = 0;
-	as->as_vbase2 = 0;
-	as->as_pbase2 = 0;
-	as->as_npages2 = 0;
 	as->as_stackpbase = 0;
+	as->as_nregions = 0;
 	// TODO end
 
 	return as;
@@ -50,6 +45,8 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 	if (new==NULL) {
 		return ENOMEM;
 	}
+
+	/*
 
 	// TODO start
 	new->as_vbase1 = old->as_vbase1;
@@ -79,7 +76,7 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 		DUMBVM_STACKPAGES*PAGE_SIZE);
 
 	// TODO end
-	
+	*/
 	*ret = new;
 	return 0;
 }
@@ -137,6 +134,7 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz,
 
 	// TODO
 	size_t npages;
+	int nregions = as->as_nregions;
 
 	/* Align the region. First, the base... */
 	sz += vaddr & ~(vaddr_t)PAGE_FRAME;
@@ -147,28 +145,23 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz,
 
 	npages = sz / PAGE_SIZE;
 
-	/* We don't use these - all pages are read-write */
-	(void)readable;
-	(void)writeable;
-	(void)executable;
 
-	if (as->as_vbase1 == 0) {
-		as->as_vbase1 = vaddr;
-		as->as_npages1 = npages;
+	if (nregions < MAX_REGIONS) {
+
+		as->as_vbase[nregions] = vaddr;
+		as->as_npages[nregions] = npages;
+
+		// Set the permissions for the region
+		as->as_permissions[nregions] = (readable ? P_READ : 0) |
+									   (writeable ? P_WRITE : 0) |
+									   (executable ? P_EXEC : 0);
+
+		as->as_nregions = nregions + 1;
 		return 0;
+	} else {
+		kprintf('vm: Warning: too many regions\n');
+		return EUNIMP;
 	}
-
-	if (as->as_vbase2 == 0) {
-		as->as_vbase2 = vaddr;
-		as->as_npages2 = npages;
-		return 0;
-	}
-
-	/*
-	 * Support for more than two regions is not available.
-	 */
-	kprintf("dumbvm: Warning: too many regions\n");
-	return EUNIMP;
 }
 static
 paddr_t
@@ -181,19 +174,17 @@ int
 as_prepare_load(struct addrspace *as)
 {
 	// TODO
+	int i;
+	int nregions = as->as_nregions;
 
-	assert(as->as_pbase1 == 0);
-	assert(as->as_pbase2 == 0);
 	assert(as->as_stackpbase == 0);
 
-	as->as_pbase1 = getppages(as->as_npages1);
-	if (as->as_pbase1 == 0) {
-		return ENOMEM;
-	}
-
-	as->as_pbase2 = getppages(as->as_npages2);
-	if (as->as_pbase2 == 0) {
-		return ENOMEM;
+	for (i = 0; i < nregions; i++) {
+		assert(as->as_pbase[i] == 0);
+		as->as_pbase[i] = getppages(as->as_npages[i]);
+		if (as->as_pbase[i] == 0) {
+			return ENOMEM;
+		}
 	}
 
 	as->as_stackpbase = getppages(DUMBVM_STACKPAGES);
@@ -229,47 +220,47 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 int as_valid_ptr(vaddr_t ptr) {
 	// TODO
 
-	vaddr_t vbase1, vtop1, vbase2, vtop2, stackbase, stacktop;
-	struct addrspace *as;
-	int spl;
+	// vaddr_t vbase1, vtop1, vbase2, vtop2, stackbase, stacktop;
+	// struct addrspace *as;
+	// int spl;
 
-	spl = splhigh();
+	// spl = splhigh();
 
-	ptr &= PAGE_FRAME;
+	// ptr &= PAGE_FRAME;
 
-	as = curthread->t_vmspace;
-	if (as == NULL) {
-		return EFAULT;
-	}
+	// as = curthread->t_vmspace;
+	// if (as == NULL) {
+	// 	return EFAULT;
+	// }
 
-	/* Assert that the address space has been set up properly. */
-	assert(as->as_vbase1 != 0);
-	assert(as->as_pbase1 != 0);
-	assert(as->as_npages1 != 0);
-	assert(as->as_vbase2 != 0);
-	assert(as->as_pbase2 != 0);
-	assert(as->as_npages2 != 0);
-	assert(as->as_stackpbase != 0);
-	assert((as->as_vbase1 & PAGE_FRAME) == as->as_vbase1);
-	assert((as->as_pbase1 & PAGE_FRAME) == as->as_pbase1);
-	assert((as->as_vbase2 & PAGE_FRAME) == as->as_vbase2);
-	assert((as->as_pbase2 & PAGE_FRAME) == as->as_pbase2);
-	assert((as->as_stackpbase & PAGE_FRAME) == as->as_stackpbase);
+	// /* Assert that the address space has been set up properly. */
+	// assert(as->as_vbase1 != 0);
+	// assert(as->as_pbase1 != 0);
+	// assert(as->as_npages1 != 0);
+	// assert(as->as_vbase2 != 0);
+	// assert(as->as_pbase2 != 0);
+	// assert(as->as_npages2 != 0);
+	// assert(as->as_stackpbase != 0);
+	// assert((as->as_vbase1 & PAGE_FRAME) == as->as_vbase1);
+	// assert((as->as_pbase1 & PAGE_FRAME) == as->as_pbase1);
+	// assert((as->as_vbase2 & PAGE_FRAME) == as->as_vbase2);
+	// assert((as->as_pbase2 & PAGE_FRAME) == as->as_pbase2);
+	// assert((as->as_stackpbase & PAGE_FRAME) == as->as_stackpbase);
 
-	vbase1 = as->as_vbase1;
-	vtop1 = vbase1 + as->as_npages1 * PAGE_SIZE;
-	vbase2 = as->as_vbase2;
-	vtop2 = vbase2 + as->as_npages2 * PAGE_SIZE;
-	stackbase = USERSTACK - DUMBVM_STACKPAGES * PAGE_SIZE;
-	stacktop = USERSTACK;
+	// vbase1 = as->as_vbase1;
+	// vtop1 = vbase1 + as->as_npages1 * PAGE_SIZE;
+	// vbase2 = as->as_vbase2;
+	// vtop2 = vbase2 + as->as_npages2 * PAGE_SIZE;
+	// stackbase = USERSTACK - DUMBVM_STACKPAGES * PAGE_SIZE;
+	// stacktop = USERSTACK;
 
-	if (ptr >= vbase1 && ptr < vtop1) {}
-	else if (ptr >= vbase2 && ptr < vtop2) {}
-	else if (ptr >= stackbase && ptr < stacktop) {}
-	else {
-		splx(spl);
-		return EFAULT;
-	}
-	splx(spl);
+	// if (ptr >= vbase1 && ptr < vtop1) {}
+	// else if (ptr >= vbase2 && ptr < vtop2) {}
+	// else if (ptr >= stackbase && ptr < stacktop) {}
+	// else {
+	// 	splx(spl);
+	// 	return EFAULT;
+	// }
+	// splx(spl);
 	return 0;
 }
