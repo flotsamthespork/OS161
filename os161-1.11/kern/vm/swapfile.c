@@ -16,13 +16,16 @@ static struct lock *swapfile_lock;
 // the number of used entries in the swapfile (for debugging purposes)
 static unsigned int swapfile_pages_in_use = 0;
 
+// used to search the swapfile circularly for an empty page
+static unsigned int last_page_stored = 0;
+
 void swapfile_bootstrap() {
 	int i;
 	for (i = 0; i < SWAPFILE_MAX_PAGES; i++) {
 		swapfile_entries[i] = 0;
 	}
 
-	DEBUG(DB_SWAPFILE, "Opening swapfile %s of size %d (%d pages).", SWAPFILE_NAME, SWAPFILE_MAX_SIZE, SWAPFILE_MAX_PAGES);
+	DEBUG(DB_SWAPFILE, "Opening swapfile %s of size %d (%d pages).\n", SWAPFILE_NAME, SWAPFILE_MAX_SIZE, SWAPFILE_MAX_PAGES);
 
 	char * swapfile_name = kstrdup(SWAPFILE_NAME); // copy the name because vfs_open does funny things with it
 	int err = vfs_open(swapfile_name, O_RDWR | O_CREAT | O_TRUNC, &swapfile);
@@ -34,75 +37,89 @@ void swapfile_bootstrap() {
 }
 
 void swapfile_shutdown() {
-	vfs_close(swapfile);
+	DEBUG(DB_SWAPFILE, "Cleaning up swapfile.\n");
+
+	// TODO figure out why closing the swapfile causes everything to go to hell
+//	vfs_close(swapfile);
 
 	lock_destroy(swapfile_lock);
+}
+
+/** Utility method to get a free page in the swapfile. **/
+static int swapfile_getfreepage() {
+	int i;
+	for (i = last_page_stored; i != last_page_stored - 1; i = (i + 1) % SWAPFILE_MAX_PAGES) {
+		if (swapfile_entries[i] == 0) {
+			last_page_stored = i;
+
+			return i;
+		}
+	}
+
+	return -1;
 }
 
 int swapfile_storepage(void *source) {
 	lock_acquire(swapfile_lock);
 
-	int i;
-	for (i = 0; i < SWAPFILE_MAX_PAGES; i++) {
-		if (!swapfile_entries[i]) break;
-	}
+	int page = swapfile_getfreepage();
 
-	if (i == SWAPFILE_MAX_PAGES) panic("Out of swap space");
+	if (page == -1) panic("Out of swap space");
 
 	DEBUG(DB_SWAPFILE, "Storing page at %x to swapfile page %d. %d of %d pages are in use.\n",
-			(unsigned int) source, i, swapfile_pages_in_use, SWAPFILE_MAX_PAGES);
+			(unsigned int) source, page, swapfile_pages_in_use, SWAPFILE_MAX_PAGES);
 
 	// construct a uio to handle the write
 	struct uio operation;
 	operation.uio_iovec.iov_kbase = source;
 	operation.uio_iovec.iov_len = PAGE_SIZE;
 
-	operation.uio_offset = i * PAGE_SIZE;
+	operation.uio_offset = page * PAGE_SIZE;
 	operation.uio_resid = PAGE_SIZE;
 	operation.uio_segflg = UIO_SYSSPACE;
 	operation.uio_rw = UIO_WRITE;
 	operation.uio_space = NULL;
 
 	int err = VOP_WRITE(swapfile, &operation);
-	int length = operation.uio_offset - i * PAGE_SIZE;
+	int length = operation.uio_offset - page * PAGE_SIZE;
 
 	assert(err == 0);
 	assert(length == PAGE_SIZE);
 
-	swapfile_entries[i] = 1;
+	swapfile_entries[page] = 1;
 
 	lock_release(swapfile_lock);
 
-	return i;
+	return page;
 }
 
-int swapfile_getpage(int i, void *dest) {
+int swapfile_getpage(int page, void *dest) {
 	lock_acquire(swapfile_lock);
 
-	assert(i >= 0);
-	assert(i < SWAPFILE_MAX_PAGES);
-	assert(swapfile_entries[i] == 1);
+	assert(page >= 0);
+	assert(page < SWAPFILE_MAX_PAGES);
+	assert(swapfile_entries[page] == 1);
 
 	// construct a uio to handle the write
 	struct uio operation;
 	operation.uio_iovec.iov_kbase = dest;
 	operation.uio_iovec.iov_len = PAGE_SIZE;
 
-	operation.uio_offset = i * PAGE_SIZE;
+	operation.uio_offset = page * PAGE_SIZE;
 	operation.uio_resid = PAGE_SIZE;
 	operation.uio_segflg = UIO_SYSSPACE;
 	operation.uio_rw = UIO_READ;
 	operation.uio_space = NULL;
 
 	int err = VOP_READ(swapfile, &operation);
-	int length = operation.uio_offset - i * PAGE_SIZE;
+	int length = operation.uio_offset - page * PAGE_SIZE;
 
 	assert(err == 0);
 	assert(length == PAGE_SIZE);
 
-	swapfile_entries[i] = 0;
+	swapfile_entries[page] = 0;
 
 	lock_release(swapfile_lock);
 
-	return i;
+	return page;
 }
