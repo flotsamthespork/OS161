@@ -20,6 +20,8 @@ static unsigned int coremap_size;
 // the number of non-free entries in the coremap (for debugging purposes)
 static unsigned int coremap_pages_in_use = 0;
 
+static unsigned int last_page_used = 0;
+
 void coremap_bootstrap() {
 	// get the size of the memory
 	paddr_t first, last;
@@ -64,6 +66,44 @@ void coremap_shutdown() {
 	lock_destroy(coremap_lock);
 }
 
+/** Utility method to get a free page in the swapfile. **/
+static int coremap_getfreepages(unsigned long npages) {
+	unsigned int i, pages = 0;
+	for (i = last_page_used; i < coremap_size; i++) {
+		if (coremap[i].state == FREE) {
+			pages += 1;
+		} else {
+			pages = 0;
+		}
+
+		if (pages == npages) {
+			int page = i - (npages - 1);
+			last_page_used = i;
+
+			return page;
+		}
+	}
+
+	// check the start of the coremap, but don't count pages wrapping around
+	pages = 0;
+	for (i = 0; i < last_page_used; i++) {
+		if (coremap[i].state == FREE) {
+			pages += 1;
+		} else {
+			pages = 0;
+		}
+
+		if (pages == npages) {
+			int page = i - (npages - 1);
+			last_page_used = i;
+
+			return page;
+		}
+	}
+
+	return -1;
+}
+
 paddr_t coremap_getpages(unsigned long npages) {
 	if (npages == 0) {
 		panic("Attempting to get 0 pages from the coremap.\n");
@@ -75,29 +115,17 @@ paddr_t coremap_getpages(unsigned long npages) {
 		lock_acquire(coremap_lock);
 
 		// find npages consecutive pages in physical memory
-		unsigned int i, pages = 0;
-		for (i = 0; i < coremap_size; i++) {
-			if (coremap[i].state == FREE) {
-				pages += 1;
-			} else {
-				pages = 0;
-			}
+		unsigned int page = coremap_getfreepages(npages);
 
-			if (pages == npages) {
-				break;
-			}
-		}
-
-		if (i < coremap_size) {
+		if (page != -1) {
 			// we found space
-			unsigned int page = i - (npages - 1);
-
 			// TODO are these being set correctly?
 			coremap[page].addr = (vaddr_t) NULL;
 			coremap[page].addrspace = (struct addrspace *) NULL;
 			coremap[page].page_count = npages;
 			coremap[page].state = DIRTY;
 
+			unsigned int i;
 			for (i = 1; i < npages; i++) {
 				coremap[page + i].addr = (vaddr_t) NULL;
 				coremap[page + i].addrspace = (struct addrspace *) NULL;
@@ -107,7 +135,8 @@ paddr_t coremap_getpages(unsigned long npages) {
 
 			coremap_pages_in_use += npages;
 
-			DEBUG(DB_COREMAP, "%u of %u pages in use after allocation of %lu pages.\n", coremap_pages_in_use, coremap_size, npages);
+			DEBUG(DB_COREMAP, "%u of %u pages in use after allocation of %lu pages starting with page %u.\n",
+					coremap_pages_in_use, coremap_size, npages, page);
 
 			paddr = page * PAGE_SIZE;
 		} else {
