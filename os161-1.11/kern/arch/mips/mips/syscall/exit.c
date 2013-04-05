@@ -6,6 +6,7 @@
 #include <synch.h>
 #include <syscall.h>
 #include <thread.h>
+#include <vfs.h>
 
 void sys__exit(int exitcode) {
 
@@ -35,6 +36,8 @@ void sys__exit(int exitcode) {
 	}
 
 	lock_release(process_lock);
+
+	vfs_close(curthread->t_vmspace->as_v);
 
 	thread_exit();
 

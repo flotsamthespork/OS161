@@ -2,9 +2,13 @@
 #define _ADDRSPACE_H_
 
 #include <vm.h>
+#include <pt.h>
+#include <vfs.h>
 #include "opt-dumbvm.h"
 
 #include "opt-A2.h"
+
+#define MAX_REGIONS		(3)
 
 struct vnode;
 
@@ -25,16 +29,18 @@ struct addrspace {
 	size_t as_npages2;
 	paddr_t as_stackpbase;
 #else
-	// TODO
-	vaddr_t as_vbase1;
-	paddr_t as_pbase1;
-	size_t as_npages1;
-	vaddr_t as_vbase2;
-	paddr_t as_pbase2;
-	size_t as_npages2;
-	paddr_t as_stackpbase;
+	struct pagetable *as_pt;
+	struct vnode *as_v;
 #endif
 };
+
+
+// struct region {
+// 	int permissions;
+// 	vaddr_t vaddr;
+// 	size_t memsize;
+// 	size_t filesize;
+// };
 
 /*
  * Functions in addrspace.c:

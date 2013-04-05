@@ -162,6 +162,8 @@ runprogram(char *progname)
 	/* Activate it. */
 	as_activate(curthread->t_vmspace);
 
+	curthread->t_vmspace->as_v = v;
+
 	/* Load the executable. */
 	result = load_elf(v, &entrypoint);
 	if (result) {
@@ -170,13 +172,11 @@ runprogram(char *progname)
 		return result;
 	}
 
-	/* Done with the file now. */
-	vfs_close(v);
-
 	/* Define the user stack in the address space */
 	result = as_define_stack(curthread->t_vmspace, &stackptr);
 	if (result) {
 		/* thread_exit destroys curthread->t_vmspace */
+		vfs_close(v);
 		return result;
 	}
 
@@ -185,6 +185,7 @@ runprogram(char *progname)
 	/* Copy arguments */
 	result = copyArgsOut(argv, (char *) stackptr - 8, argc, &offset);
 	if (result) {
+		vfs_close(v);
 		return result;
 	}
 

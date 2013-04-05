@@ -11,6 +11,7 @@
 #include <thread.h>
 #include <types.h>
 #include <uw-vmstats.h>
+#include <pt.h>
 
 #include "opt-A3.h"
 
@@ -34,7 +35,7 @@ void vm_bootstrap() {
 #if OPT_A3
 void vm_shutdown() {
 	coremap_shutdown();
-	swapfile_shutdown();
+	// swapfile_shutdown();
 
 	vmstats_print();
 }
@@ -42,12 +43,12 @@ void vm_shutdown() {
 
 int vm_fault(int faulttype, vaddr_t faultaddress) {
 	// TODO
-	vaddr_t vbase1, vtop1, vbase2, vtop2, stackbase, stacktop;
 	paddr_t paddr;
 	int tlb_idx;
 	u_int32_t ehi, elo;
 	struct addrspace *as;
 	int spl;
+	int writeable;
 
 	spl = splhigh();
 
@@ -57,9 +58,6 @@ int vm_fault(int faulttype, vaddr_t faultaddress) {
 
 	switch (faulttype) {
 	    case VM_FAULT_READONLY:
-		/* We always create pages read-write, so we can't get this */
-		panic("dumbvm: got VM_FAULT_READONLY\n");
-		break;
 	    case VM_FAULT_READ:
 	    case VM_FAULT_WRITE:
 		break;
@@ -78,56 +76,33 @@ int vm_fault(int faulttype, vaddr_t faultaddress) {
 		return EFAULT;
 	}
 
-	/* Assert that the address space has been set up properly. */
-	assert(as->as_vbase1 != 0);
-	assert(as->as_pbase1 != 0);
-	assert(as->as_npages1 != 0);
-	assert(as->as_vbase2 != 0);
-	assert(as->as_pbase2 != 0);
-	assert(as->as_npages2 != 0);
-	assert(as->as_stackpbase != 0);
-	assert((as->as_vbase1 & PAGE_FRAME) == as->as_vbase1);
-	assert((as->as_pbase1 & PAGE_FRAME) == as->as_pbase1);
-	assert((as->as_vbase2 & PAGE_FRAME) == as->as_vbase2);
-	assert((as->as_pbase2 & PAGE_FRAME) == as->as_pbase2);
-	assert((as->as_stackpbase & PAGE_FRAME) == as->as_stackpbase);
+	paddr = pt_get_paddr(as->as_pt, faultaddress, 1, PAGE_W_MASK | PAGE_R_MASK);
 
-	vbase1 = as->as_vbase1;
-	vtop1 = vbase1 + as->as_npages1 * PAGE_SIZE;
-	vbase2 = as->as_vbase2;
-	vtop2 = vbase2 + as->as_npages2 * PAGE_SIZE;
-	stackbase = USERSTACK - DUMBVM_STACKPAGES * PAGE_SIZE;
-	stacktop = USERSTACK;
-
-	if (faultaddress >= vbase1 && faultaddress < vtop1) {
-		paddr = (faultaddress - vbase1) + as->as_pbase1;
-	}
-	else if (faultaddress >= vbase2 && faultaddress < vtop2) {
-		paddr = (faultaddress - vbase2) + as->as_pbase2;
-	}
-	else if (faultaddress >= stackbase && faultaddress < stacktop) {
-		paddr = (faultaddress - stackbase) + as->as_stackpbase;
-	}
-	else {
-		splx(spl);
-		return EFAULT;
+	switch (faulttype) {
+	    case VM_FAULT_READONLY:
+	    if (paddr & PAGE_W_MASK) {
+	    	splx(spl);
+	    	return EFAULT;
+	    }
+	    // fallthrough to make sure it is read only
+	    case VM_FAULT_READ:
+	    if (!(paddr & PAGE_R_MASK)) {
+	    	splx(spl);
+	    	return EFAULT;
+	    }
+	    break;
+	    case VM_FAULT_WRITE:
+	    // if (!(paddr & PAGE_W_MASK)) {
+	    // 	splx(spl);
+	    // 	return EFAULT;
+	    // }
+		break;
 	}
 
-	/* make sure it's page-aligned */
-	assert((paddr & PAGE_FRAME)==paddr);
+	writeable = paddr & PAGE_W_MASK;
 
-	// for (i=0; i<NUM_TLB; i++) {
-	// 	TLB_Read(&ehi, &elo, i);
-	// 	if (elo & TLBLO_VALID) {
-	// 		continue;
-	// 	}
-	// 	ehi = faultaddress;
-	// 	elo = paddr | TLBLO_DIRTY | TLBLO_VALID;
-	// 	DEBUG(DB_VM, "dumbvm: 0x%x -> 0x%x\n", faultaddress, paddr);
-	// 	TLB_Write(ehi, elo, i);
-	// 	splx(spl);
-	// 	return 0;
-	// }
+
+	paddr &= PAGE_FRAME;
 
 	// Fault occured, but it was just a TLB Miss and not a bad address
 	vmstats_inc(VMSTAT_TLB_FAULT);
@@ -145,7 +120,10 @@ int vm_fault(int faulttype, vaddr_t faultaddress) {
 	}
 
 	ehi = faultaddress;
-	elo = paddr | TLBLO_DIRTY | TLBLO_VALID;
+	elo = paddr | TLBLO_VALID;
+	// if (writeable) {
+		elo |= TLBLO_DIRTY;
+	// }
 	DEBUG(DB_VM, "dumbvm: 0x%x -> 0x%x\n", faultaddress, paddr);
 	TLB_Write(ehi, elo, tlb_idx);
 	splx(spl);

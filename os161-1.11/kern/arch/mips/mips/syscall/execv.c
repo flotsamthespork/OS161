@@ -233,6 +233,8 @@ int sys_execv(const char *program, char **args) {
 	/* Activate it. */
 	as_activate(curthread->t_vmspace);
 
+	curthread->t_vmspace->as_v = v;
+
 	/* Load the executable. */
 	result = load_elf(v, &entrypoint);
 	if (result) {
@@ -242,20 +244,19 @@ int sys_execv(const char *program, char **args) {
 		return result;
 	}
 
-	/* Done with the file now. */
-	vfs_close(v);
-
 	/* Define the user stack in the address space */
 	result = as_define_stack(curthread->t_vmspace, &stackptr);
 	if (result) {
 		/* thread_exit destroys curthread->t_vmspace */
 		kfree(kargs);
+		vfs_close(v);
 		return result;
 	}
 
 	result = copyArgsOut(kargs, (char*)(stackptr-argsize-8), argc, argsize);
 	kfree(kargs);
 	if (result) {
+		vfs_close(v);
 		return result;
 	}
 

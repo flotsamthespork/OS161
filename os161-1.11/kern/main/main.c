@@ -18,6 +18,8 @@
 #include <version.h>
 #include <process.h>
 
+ #include <pt.h>
+
 #include "opt-A1.h"
 #include "opt-A3.h"
 
@@ -100,6 +102,11 @@ boot(void)
 	 */
 	assert(sizeof(userptr_t)==sizeof(char *));
 	assert(sizeof(*(userptr_t)0)==sizeof(char));
+// paddr_t p;
+// 	struct pagetable *pt = pt_create();
+// 	pt_define_region(pt, (vaddr_t) (0x4), (size_t)12292, PAGE_W_MASK | PAGE_R_MASK);
+// 	p = pt_get_paddr(pt, (vaddr_t) (0x4), 1, PAGE_R_MASK | PAGE_W_MASK);
+// 	p = pt_get_paddr(pt, (vaddr_t) (0x4000000), 1, PAGE_W_MASK);
 }
 
 /*

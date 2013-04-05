@@ -468,9 +468,13 @@ file		arch/mips/mips/syscall/execv.c
 defoption A3
 file		vm/coremap.c
 file    	vm/uw-vmstats.c
+<<<<<<< Updated upstream
 file		vm/swapfile.c
 file		vm/vm.c
+=======
 file 		vm/pt.c
+file		arch/mips/mips/vm.c
+>>>>>>> Stashed changes
 defoption A4
 defoption A5
 
