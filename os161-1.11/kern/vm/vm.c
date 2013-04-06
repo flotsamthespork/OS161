@@ -41,14 +41,59 @@ void vm_shutdown() {
 }
 #endif
 
+static void tlb_update(vaddr_t faultaddress, paddr_t paddr, int tlb_idx) {
+	u_int32_t ehi, elo;
+	int writeable;
+
+	writeable = paddr & PAGE_W_MASK;
+
+	paddr &= PAGE_FRAME;
+
+	ehi = faultaddress;
+	elo = paddr | TLBLO_VALID;
+	if (writeable) {
+		elo |= TLBLO_DIRTY;
+	}
+	DEBUG(DB_VM, "dumbvm: 0x%x -> 0x%x\n", faultaddress, paddr);
+	TLB_Write(ehi, elo, tlb_idx);
+}
+
+static int tlb_fault(vaddr_t faultaddress, paddr_t paddr) {
+	u_int32_t ehi, elo;
+	int tlb_idx = get_tlb_replace_idx();
+
+	// Fault occured, but it was just a TLB Miss and not a bad address
+	vmstats_inc(VMSTAT_TLB_FAULT);
+
+	TLB_Read(&ehi, &elo, tlb_idx);
+
+	if (elo & TLBLO_VALID) {
+		// Fault occurred and a TLB entry that is currently in use is
+		// being replaced with a new one.
+		vmstats_inc(VMSTAT_TLB_FAULT_REPLACE);
+	} else {
+		// Fault occurred and we replaced an invalid TLB entry.
+		vmstats_inc(VMSTAT_TLB_FAULT_FREE);
+	}
+
+	tlb_update(faultaddress, paddr, tlb_idx);
+	return tlb_idx;
+}
+
 int vm_fault(int faulttype, vaddr_t faultaddress) {
 	// TODO
 	paddr_t paddr;
-	int tlb_idx;
-	u_int32_t ehi, elo;
 	struct addrspace *as;
 	int spl;
-	int writeable;
+	int i, nregions;
+	struct region *region;
+	struct pagetable *pt;
+	vaddr_t rbot, rtop;
+	vaddr_t vaddr = faultaddress;
+
+	off_t offset;
+	size_t filesize;
+	size_t memsize;
 
 	spl = splhigh();
 
@@ -76,15 +121,84 @@ int vm_fault(int faulttype, vaddr_t faultaddress) {
 		return EFAULT;
 	}
 
-	paddr = pt_get_paddr(as->as_pt, faultaddress, 1, PAGE_W_MASK | PAGE_R_MASK);
+	pt = as->as_pt;
+
+	paddr = pt_get_paddr(pt, faultaddress, 0, 0);
+
+	if (paddr & PAGE_FREE) {
+		nregions = as->as_region_count;
+
+		for (i = 0; i < nregions; i++) {
+			region = &as->as_regions[i];
+			rbot = region->vaddr;
+			rtop = rbot + region->memsize;
+			if (vaddr < rtop && vaddr >= rbot) {
+				paddr = pt_get_paddr(pt, faultaddress, 1, PAGE_R_MASK | PAGE_W_MASK);
+
+				// Get the address into the tlb so we can write stuff from the elf
+				// file without causing another vm_fault
+				tlb_fault(faultaddress, paddr);
+
+				offset = region->offset + (off_t) (faultaddress - (region->vaddr & PAGE_FRAME));
+
+				rbot = (faultaddress > region->vaddr ? faultaddress : region->vaddr);
+				rtop = (faultaddress + PAGE_SIZE);
+
+				filesize = rtop - rbot;
+				memsize = rtop - rbot;
+
+				if (region->vaddr + region->filesize < rtop) {
+					filesize = (region->vaddr + region->filesize);
+					if (rbot <= filesize) {
+						filesize -= rbot;
+					} else {
+						filesize = 0;
+					}
+				}
+
+				if (region->vaddr + region->memsize < rtop) {
+					memsize = (region->vaddr + region->memsize);
+					if (rbot <= memsize) {
+						memsize -= rbot;
+					} else {
+						memsize = 0;
+					}
+				}
+
+				load_segment(as->as_v, offset, rbot, memsize, filesize, region->permissions & PAGE_X_MASK);
+
+				pt_set_permissions(pt, faultaddress, 1, region->permissions);
+				i = TLB_Probe(faultaddress, 0);
+				if (i >= 0) {
+					tlb_update(faultaddress, (paddr & ~(PAGE_W_MASK | PAGE_R_MASK | PAGE_X_MASK)) | region->permissions, i);
+				} else {
+					tlb_fault(faultaddress, paddr);
+				}
+
+				vmstats_inc(VMSTAT_ELF_FILE_READ);
+				vmstats_inc(VMSTAT_PAGE_FAULT_DISK);
+
+				splx(spl);
+				return 0;
+			}
+		}
+	}
+
+	// If the page is free or in the swapfile we want to
+	// create it or load it from the swapfile
+	if (paddr & PAGE_FREE || paddr & PAGE_IN_SWP) {
+		paddr = pt_get_paddr(pt, faultaddress, 1, PAGE_R_MASK | PAGE_W_MASK);
+	} else {
+		vmstats_inc(VMSTAT_TLB_RELOAD);
+	}
 
 	switch (faulttype) {
 	    case VM_FAULT_READONLY:
-	    if (paddr & PAGE_W_MASK) {
+	    if (!(paddr & PAGE_W_MASK)) {
 	    	splx(spl);
 	    	return EFAULT;
 	    }
-	    // fallthrough to make sure it is read only
+	    // fallthrough to make sure it is readable only
 	    case VM_FAULT_READ:
 	    if (!(paddr & PAGE_R_MASK)) {
 	    	splx(spl);
@@ -92,47 +206,17 @@ int vm_fault(int faulttype, vaddr_t faultaddress) {
 	    }
 	    break;
 	    case VM_FAULT_WRITE:
-	    // if (!(paddr & PAGE_W_MASK)) {
-	    // 	splx(spl);
-	    // 	return EFAULT;
-	    // }
+	    if (!(paddr & PAGE_W_MASK)) {
+	    	splx(spl);
+	    	return EFAULT;
+	    }
 		break;
 	}
 
-	writeable = paddr & PAGE_W_MASK;
-
-
-	paddr &= PAGE_FRAME;
-
-	// Fault occured, but it was just a TLB Miss and not a bad address
-	vmstats_inc(VMSTAT_TLB_FAULT);
-
-	tlb_idx = get_tlb_replace_idx();
-	TLB_Read(&ehi, &elo, tlb_idx);
-
-	if (elo & TLBLO_VALID) {
-		// Fault occurred and a TLB entry that is currently in use is
-		// being replaced with a new one.
-		vmstats_inc(VMSTAT_TLB_FAULT_REPLACE);
-	} else {
-		// Fault occurred and we replaced an invalid TLB entry.
-		vmstats_inc(VMSTAT_TLB_FAULT_FREE);
-	}
-
-	ehi = faultaddress;
-	elo = paddr | TLBLO_VALID;
-	// if (writeable) {
-		elo |= TLBLO_DIRTY;
-	// }
-	DEBUG(DB_VM, "dumbvm: 0x%x -> 0x%x\n", faultaddress, paddr);
-	TLB_Write(ehi, elo, tlb_idx);
+	tlb_fault(faultaddress, paddr);
+	
 	splx(spl);
 	return 0;
-
-
-	// kprintf("dumbvm: Ran out of TLB entries - cannot handle page fault\n");
-	// splx(spl);
-	// return EFAULT;
 }
 
 vaddr_t alloc_kpages(int npages) {

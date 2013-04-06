@@ -19,6 +19,14 @@ struct vnode;
  * You write this.
  */
 
+struct region {
+	off_t offset;
+	size_t memsize;
+	size_t filesize;
+	vaddr_t vaddr;
+	int permissions;
+};
+
 struct addrspace {
 #if OPT_DUMBVM
 	vaddr_t as_vbase1;
@@ -31,16 +39,11 @@ struct addrspace {
 #else
 	struct pagetable *as_pt;
 	struct vnode *as_v;
+	struct region as_regions[MAX_REGIONS];
+	int as_region_count;
 #endif
 };
 
-
-// struct region {
-// 	int permissions;
-// 	vaddr_t vaddr;
-// 	size_t memsize;
-// 	size_t filesize;
-// };
 
 /*
  * Functions in addrspace.c:
@@ -81,14 +84,17 @@ int               as_copy(struct addrspace *src, struct addrspace **ret);
 void              as_activate(struct addrspace *);
 void              as_destroy(struct addrspace *);
 
-int               as_define_region(struct addrspace *as, 
-				   vaddr_t vaddr, size_t sz,
+int               as_define_region(struct addrspace *as,
+				   off_t offset, size_t memsize,
+				   size_t filesize, vaddr_t vaddr,
 				   int readable, 
 				   int writeable,
 				   int executable);
+
 int		  as_prepare_load(struct addrspace *as);
 int		  as_complete_load(struct addrspace *as);
 int               as_define_stack(struct addrspace *as, vaddr_t *initstackptr);
+paddr_t   		as_get_paddr(struct addrspace *as, vaddr_t vaddr);
 
 #if OPT_A2
 int 		as_valid_ptr(vaddr_t ptr);
@@ -102,6 +108,10 @@ int 		as_valid_ptr(vaddr_t ptr);
  */
 
 int load_elf(struct vnode *v, vaddr_t *entrypoint);
+
+int load_segment(struct vnode *v, off_t offset, vaddr_t vaddr, 
+	     size_t memsize, size_t filesize,
+	     int is_executable);
 
 
 #endif /* _ADDRSPACE_H_ */

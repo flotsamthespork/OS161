@@ -6,5 +6,5 @@ directory=`cd root && pwd`
 sed "$sed_cmd" .gdb_session > .gdb_session_script
 gnome-terminal --working-directory="$directory" -x sh -c 'cs350-gdb kernel -x ../.gdb_session_script '
 
-(cd root && sys161 -w kernel "p testbin/add 4 5;q")
+(cd root && sys161 -w kernel "p uw-testbin/vm-crash1;q")
 rm .gdb_session_script

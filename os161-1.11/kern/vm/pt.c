@@ -5,6 +5,8 @@
 #include <coremap.h>
 #include <kern/errno.h>
 
+#include <uw-vmstats.h>
+
 
 
 static struct pagetable *_pt_create(int permissions) {
@@ -19,6 +21,21 @@ static struct pagetable *_pt_create(int permissions) {
 	}
 
 	return pt;
+}
+
+
+static paddr_t _pt_create_page() {
+	int i;
+	paddr_t paddr = (paddr_t)coremap_getpages(1);
+	if (paddr==(paddr_t)NULL) {
+		return (paddr_t)NULL;
+	}
+
+	// for (i = 0; i < PAGE_SIZE/4; i += 1) {
+	// 	((int*)paddr)[i] = 0;
+	// }
+
+	return paddr;
 }
 
 
@@ -91,22 +108,23 @@ static int get_page(struct pagetable *pt,
 		int offset, int create, paddr_t *dst) {
 	int value, state, permissions;
 
-	*dst = PAGE_FREE;
-
 	value = get_value(pt, offset);
 	state = get_page_state_by_value(value);
 
 	permissions = value & (PAGE_R_MASK | PAGE_W_MASK | PAGE_X_MASK);
 
 	if (state == PAGE_FREE) {
+		*dst = PAGE_FREE;
 		if (create) {
-			// TODO
-			*dst = (paddr_t)coremap_getpages(1) | (paddr_t)(PAGE_IN_MEM_MASK | permissions);
+			vmstats_inc(VMSTAT_PAGE_FAULT_ZERO);
+			*dst = _pt_create_page() | (paddr_t)(PAGE_IN_MEM_MASK | permissions);
 			set_value(pt, offset, ((int)*dst));
 			return 0;
 		}
 	} else if (state == PAGE_IN_SWP) {
+		*dst = PAGE_IN_SWP;
 		if (create) {
+			vmstats_inc(VMSTAT_PAGE_FAULT_DISK);
 			// TODO - load from swap file
 			return 0;
 		}
@@ -184,7 +202,8 @@ int pt_define_region(struct pagetable *pt, vaddr_t vaddr,
 	return 0;
 }
 
-paddr_t pt_get_paddr(struct pagetable *pt, vaddr_t vaddr, int create, int permissions) {
+paddr_t pt_get_paddr(struct pagetable *pt, vaddr_t vaddr,
+		int create, int permissions) {
 	int offset;
 	struct pagetable *spt;
 	paddr_t paddr;
@@ -194,7 +213,26 @@ paddr_t pt_get_paddr(struct pagetable *pt, vaddr_t vaddr, int create, int permis
 		return (paddr_t) PAGE_FREE;
 	} else {
 		offset = get_offset(vaddr, ADDR_LOW_MASK, ADDR_LOW_SHIFT);
-		get_page(spt, offset, 1, &paddr);
+		get_page(spt, offset, create, &paddr);
 		return paddr;
 	}
+}
+
+int pt_set_permissions(struct pagetable *pt, vaddr_t vaddr,
+		int create, int permissions) {
+	int offset, value;
+	paddr_t paddr;
+	struct pagetable *spt;
+
+	get_pagetable(pt, vaddr, create, permissions, &spt);
+	if (spt != NULL) {
+		offset = get_offset(vaddr, ADDR_LOW_MASK, ADDR_LOW_SHIFT);
+		value = get_page(spt, offset, create, &paddr);
+		if (!value) {
+			value = get_value(spt, offset) & ~(PAGE_R_MASK | PAGE_X_MASK | PAGE_W_MASK);
+			set_value(spt, offset, value | permissions);
+			return 1;
+		}
+	}
+	return 0;
 }

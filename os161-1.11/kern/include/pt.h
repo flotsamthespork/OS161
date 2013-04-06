@@ -23,5 +23,6 @@ struct pagetable *pt_create();
 void pt_destroy(struct pagetable *pt);
 int pt_define_region(struct pagetable *pt, vaddr_t vaddr, size_t size, int permissions);
 paddr_t pt_get_paddr(struct pagetable *pt, vaddr_t vaddr, int create, int permissions);
+int pt_set_permissions(struct pagetable *pt, vaddr_t vaddr, int create, int permissions);
 
 #endif

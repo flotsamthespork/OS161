@@ -14,10 +14,10 @@ int sys_open(const char *filename, int flags, int mode, int *err) {
 
 	// make sure that we've been given a valid pointer for the file name
 	// TODO talk to patrick about as_valid_ptr since it returns weirdly (0 on a valid ptr?)
-	if (as_valid_ptr((vaddr_t) filename)) {
-		*err = EFAULT;
-		return -1;
-	}
+	// if (as_valid_ptr((vaddr_t) filename)) {
+	// 	*err = EFAULT;
+	// 	return -1;
+	// }
 
 	lock_acquire(process_lock);
 

@@ -28,6 +28,8 @@ as_create(void)
 		return NULL;
 	}
 
+	as->as_region_count = 0;
+
 	as->as_pt = pt_create();
 	if (as->as_pt == NULL) {
 		kfree(as);
@@ -85,13 +87,6 @@ as_destroy(struct addrspace *as)
 {
 	assert(as != NULL);
 	assert(as->as_pt != NULL);
-	// assert(as->as_pbase1 != (paddr_t) NULL);
-	// assert(as->as_pbase2 != (paddr_t) NULL);
-	// assert(as->as_stackpbase != (paddr_t) NULL);
-
-	// coremap_freepages(as->as_pbase1);
-	// coremap_freepages(as->as_pbase2);
-	// coremap_freepages(as->as_stackpbase);
 
 	pt_destroy(as->as_pt);
 	
@@ -130,25 +125,84 @@ as_activate(struct addrspace *as)
  * want to implement them.
  */
 int
-as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz,
+as_define_region(struct addrspace *as, off_t offset,
+		 size_t memsize, size_t filesize, vaddr_t vaddr,
 		 int readable, int writeable, int executable)
 {
+	// memsize was what was originally passed in
 
 	struct pagetable *pt = as->as_pt;
 	int permissions = 0;
 	int error;
+	int nregions;
+	struct region *region;
 
 	if (readable) { permissions |= PAGE_R_MASK; }
 	if (writeable) { permissions |= PAGE_W_MASK; }
 	if (executable) { permissions |= PAGE_X_MASK; }
 
-	error = pt_define_region(pt, vaddr, sz, permissions);
-	if (error) {
-		return EUNIMP;
-	} else {
+
+	nregions = as->as_region_count;
+
+	if (nregions == MAX_REGIONS) {
+		panic("vm: too many regions defined. OH GOD, EVERYBODY PANIC.");
+	}
+
+	region = &as->as_regions[nregions];
+	region->offset = offset;
+	region->memsize = memsize;
+	region->filesize = filesize;
+	region->vaddr = vaddr;
+	region->permissions = permissions;
+
+	as->as_region_count = nregions + 1;
+
+
+	// TODO - not do this.
+	// error = pt_define_region(pt, vaddr, memsize, permissions);
+	// if (error) {
+	// 	return EUNIMP;
+	// } else {
 		return 0;
+	// }
+}
+
+
+paddr_t as_get_paddr(struct addrspace *as, vaddr_t vaddr) {
+	// TODO - traverse regions
+	int i, nregions;
+	struct region *region;
+	struct pagetable *pt = as->as_pt;
+	vaddr_t rbot, rtop;
+	paddr_t paddr;
+
+	paddr = pt_get_paddr(pt, vaddr, 0, 0);
+
+	if (paddr & PAGE_FREE) {
+		nregions = as->as_region_count;
+
+		for (i = 0; i < nregions; i++) {
+			region = &as->as_regions[i];
+			rbot = region->vaddr;
+			rtop = rbot + region->memsize;
+			if (vaddr < rtop && vaddr >= rbot) {
+				paddr = pt_get_paddr(pt, vaddr, 1, PAGE_R_MASK | PAGE_W_MASK);
+				// TODO - load tlb shit so we dont endlessly vm_fault
+				// load_region(as->as_v, region, )
+
+				pt_set_permissions(pt, vaddr, 1, region->permissions);
+			}
+			break;
+		}
+	}
+
+	// If the page is free or in the swapfile we want to
+	// create it or load it from the swapfile
+	if (paddr & PAGE_FREE || paddr & PAGE_IN_SWP) {
+		paddr = pt_get_paddr(pt, vaddr, 1, PAGE_R_MASK | PAGE_W_MASK);
 	}
 }
+
 static
 paddr_t
 getppages(unsigned long npages)
@@ -159,26 +213,6 @@ getppages(unsigned long npages)
 int
 as_prepare_load(struct addrspace *as)
 {
-	// TODO
-
-	// assert(as->as_pbase1 == 0);
-	// assert(as->as_pbase2 == 0);
-	// assert(as->as_stackpbase == 0);
-
-	// as->as_pbase1 = getppages(as->as_npages1);
-	// if (as->as_pbase1 == 0) {
-	// 	return ENOMEM;
-	// }
-
-	// as->as_pbase2 = getppages(as->as_npages2);
-	// if (as->as_pbase2 == 0) {
-	// 	return ENOMEM;
-	// }
-
-	// as->as_stackpbase = getppages(DUMBVM_STACKPAGES);
-	// if (as->as_stackpbase == 0) {
-	// 	return ENOMEM;
-	// }
 
 	return 0;
 }
