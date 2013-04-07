@@ -3,12 +3,4 @@ target remote unix:.sockets/gdb
 
 b panic
 
-break execv.c:43
 c
-
-
-set $i = 0
-while $i < 50
-	printf "S:%c \n", ((char*)paddr)[$i]
-	set $i = $i + 1
-end

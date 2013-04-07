@@ -174,7 +174,9 @@ static void destroy_nested_pagetable(int value) {
 
 
 struct pagetable *pt_create() {
-	return _pt_create(0);
+	struct pagetable *pt = _pt_create(0);
+	coremap_setpagefixed((paddr_t)(pt)-0x80000000, 1);
+	return pt;
 }
 
 
@@ -285,15 +287,18 @@ int pt_copy(struct pagetable *dst, struct addrspace *as) {
 						// Get the page and its physical address
 						get_page(pt2, pt_idx2, 1, &paddr1);
 
+						coremap_setpagefixed(paddr1, 1);
+
 						paddr2 = pt_get_paddr(dst, vaddr, 1, permissions);
 
-						paddr1 = PADDR_TO_KVADDR(paddr1) & PAGE_FRAME;
-						paddr2 = PADDR_TO_KVADDR(paddr2) & PAGE_FRAME;
+						coremap_setpagefixed(paddr2, 1);
 
-						memmove((void *)paddr2,
-								(const void *)paddr1, PAGE_SIZE);
+						memmove((void *)(PADDR_TO_KVADDR(paddr2) & PAGE_FRAME),
+								(const void *)(PADDR_TO_KVADDR(paddr1) & PAGE_FRAME), PAGE_SIZE);
 
-						paddr2 &= PAGE_FRAME;
+						coremap_setpagefixed(paddr1, 0);
+						coremap_setpagefixed(paddr2, 0);
+
 					}
 				}
 			}
