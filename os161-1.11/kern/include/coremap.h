@@ -7,12 +7,11 @@ struct lock;
 
 enum page_state {
 	FREE,
-	DIRTY,
-	CLEAN,
+	ALLOCATED,
 	FIXED
 };
 
-struct corepage {
+struct coremap_page {
 	// the address space and virtual address to which the page is mapped
 	struct addrspace *addrspace;
 	vaddr_t addr;
@@ -31,6 +30,12 @@ void coremap_shutdown();
 paddr_t coremap_getpages(unsigned long npages);
 void coremap_freepages(paddr_t paddr);
 
-extern struct corepage *coremap;
+// Get and set whether a page is swappable or not
+int coremap_ispagefixed(paddr_t paddr);
+void coremap_setpagefixed(paddr_t paddr, int fixed);
+
+// Get and set the addrspace and vaddr of a page
+void coremap_getpagevaddr(paddr_t paddr, struct addrspace **addrspace, vaddr_t *vaddr);
+void coremap_setpagevaddr(paddr_t paddr, struct addrspace *addrspace, vaddr_t vaddr);
 
 #endif

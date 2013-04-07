@@ -6,7 +6,7 @@
 #include <thread.h>
 #include <vm.h>
 
-struct corepage *coremap;
+struct coremap_page *coremap;
 
 // TODO are these required outside this file?
 
@@ -31,8 +31,8 @@ void coremap_bootstrap() {
 	coremap_size = last / PAGE_SIZE;
 
 	// manually allocate the coremap
-	coremap = (struct corepage *) PADDR_TO_KVADDR(first);
-	first += coremap_size * sizeof (struct corepage);
+	coremap = (struct coremap_page *) PADDR_TO_KVADDR(first);
+	first += coremap_size * sizeof (struct coremap_page);
 
 	// initialize the coremap
 	unsigned int i;
@@ -115,7 +115,7 @@ paddr_t coremap_getpages(unsigned long npages) {
 		lock_acquire(coremap_lock);
 
 		// find npages consecutive pages in physical memory
-		unsigned int page = coremap_getfreepages(npages);
+		int page = coremap_getfreepages(npages);
 
 		if (page != -1) {
 			// we found space
@@ -123,14 +123,14 @@ paddr_t coremap_getpages(unsigned long npages) {
 			coremap[page].addr = (vaddr_t) NULL;
 			coremap[page].addrspace = (struct addrspace *) NULL;
 			coremap[page].page_count = npages;
-			coremap[page].state = DIRTY;
+			coremap[page].state = ALLOCATED;
 
 			unsigned int i;
 			for (i = 1; i < npages; i++) {
 				coremap[page + i].addr = (vaddr_t) NULL;
 				coremap[page + i].addrspace = (struct addrspace *) NULL;
 				coremap[page + i].page_count = 0;
-				coremap[page + i].state = DIRTY;
+				coremap[page + i].state = ALLOCATED;
 			}
 
 			coremap_pages_in_use += npages;
@@ -138,7 +138,7 @@ paddr_t coremap_getpages(unsigned long npages) {
 			DEBUG(DB_COREMAP, "%u of %u pages in use after allocation of %lu pages starting with page %u.\n",
 					coremap_pages_in_use, coremap_size, npages, page);
 
-			paddr = page * PAGE_SIZE;
+			paddr = (unsigned long) page * PAGE_SIZE;
 		} else {
 			// we didn't find space
 			paddr = (paddr_t) NULL;
@@ -170,13 +170,11 @@ void coremap_freepages(paddr_t paddr) {
 			// we're at the start of an allocation block so we can free the pages in the block
 			unsigned int i;
 			for (i = 0; i < npages; i++) {
-				if (coremap[page + i].state == DIRTY || coremap[page + i].state == CLEAN) {
+				if (coremap[page + i].state == ALLOCATED || coremap[page + i].state == FIXED) {
 					coremap[page + i].addr = (vaddr_t) NULL;
 					coremap[page + i].addrspace = (struct addrspace *) NULL;
 					coremap[page + i].page_count = 0;
 					coremap[page + i].state = FREE;
-				} else if (coremap[page + i].state == FIXED) {
-					DEBUG(DB_COREMAP, "Attempting free on a fixed page.\n");
 				} else {
 					DEBUG(DB_COREMAP, "Attempting free on an unallocated page.\n");
 				}
@@ -186,11 +184,69 @@ void coremap_freepages(paddr_t paddr) {
 
 			DEBUG(DB_COREMAP, "%u of %u pages in use after free of %lu pages.\n", coremap_pages_in_use, coremap_size, npages);
 		} else {
-			DEBUG(DB_COREMAP, "Attemping free in the middle of an allocation block.\n");
+			DEBUG(DB_COREMAP, "Attempting free in the middle of an allocation block.\n");
 		}
 
 		lock_release(coremap_lock);
 	} else {
-		panic("Trying to free 0x%x before the coremap is initialized.", paddr);
+		panic("Trying to free 0x%x before the coremap is initialized.\n", paddr);
+	}
+}
+
+int coremap_ispagefixed(paddr_t paddr) {
+	if (paddr % PAGE_SIZE != 0) {
+		DEBUG(DB_COREMAP, "Warning: paddr for coremap_ispagefixed is not page-aligned.\n");
+	}
+
+	unsigned long page = paddr / PAGE_SIZE;
+
+	return coremap[page].state == FIXED;
+}
+
+void coremap_setpagefixed(paddr_t paddr, int fixed) {
+	if (paddr % PAGE_SIZE != 0) {
+		DEBUG(DB_COREMAP, "Warning: paddr for coremap_setpagefixed is not page-aligned.\n");
+	}
+
+	unsigned long page = paddr / PAGE_SIZE;
+
+	if (coremap[page].state != FREE) {
+		if (fixed) {
+			coremap[page].state = FIXED;
+		} else {
+			coremap[page].state = ALLOCATED;
+		}
+	} else {
+		DEBUG(DB_COREMAP, "Warning: Attempting to set free page to be %s.\n", (fixed == 0 ? "swappable" : "fixed"));
+	}
+}
+
+void coremap_getpagevaddr(paddr_t paddr, struct addrspace **addrspace, vaddr_t *vaddr) {
+	if (paddr % PAGE_SIZE != 0) {
+		DEBUG(DB_COREMAP, "Warning: paddr for coremap_getpagevaddr is not page-aligned.\n");
+	}
+
+	unsigned long page = paddr / PAGE_SIZE;
+
+	if (coremap[page].state != FREE) {
+		*addrspace = coremap[page].addrspace;
+		*vaddr = coremap[page].addr;
+	} else {
+		DEBUG(DB_COREMAP, "Warning: Attempting to get the vaddr of a free page.\n");
+	}
+}
+
+void coremap_setpagevaddr(paddr_t paddr, struct addrspace *addrspace, vaddr_t vaddr) {
+	if (paddr % PAGE_SIZE != 0) {
+		DEBUG(DB_COREMAP, "Warning: paddr for coremap_setpagevaddr is not page-aligned.\n");
+	}
+
+	unsigned long page = paddr / PAGE_SIZE;
+
+	if (coremap[page].state != FREE) {
+		coremap[page].addrspace = addrspace;
+		coremap[page].addr = vaddr;
+	} else {
+		DEBUG(DB_COREMAP, "Warning: Attempting to get the vaddr of a free page.\n");
 	}
 }
