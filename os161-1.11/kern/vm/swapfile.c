@@ -17,7 +17,7 @@ static struct lock *swapfile_lock;
 static unsigned int swapfile_pages_in_use = 0;
 
 // used to search the swapfile circularly for an empty page
-static unsigned int last_page_stored = 0;
+static int last_page_stored = 0;
 
 void swapfile_bootstrap() {
 	int i;
@@ -39,7 +39,7 @@ void swapfile_bootstrap() {
 void swapfile_shutdown() {
 	DEBUG(DB_SWAPFILE, "Cleaning up swapfile.\n");
 
-	// TODO figure out why closing the swapfile causes everything to go to hell
+	// The virtual file system has already cleaned up so this causes a panic
 //	vfs_close(swapfile);
 
 	lock_destroy(swapfile_lock);
