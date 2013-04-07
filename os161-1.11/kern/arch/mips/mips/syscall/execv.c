@@ -9,12 +9,14 @@
 #include <vm.h>
 #include <vfs.h>
 #include <test.h>
+#include <pt.h>
 
 
 // Counts the number of arguments detected in "args".
 // Returns 0 if there wasn't an error with argument counting.
 int getArgCount(char **args, int *argc) {
 	int error;
+	paddr_t paddr;
 	*argc = 0;
 
 	// Check that the argument array exists
@@ -30,11 +32,20 @@ int getArgCount(char **args, int *argc) {
 	}
 
 	// Count arguments until the terminating NULL is found
-	for (; args[*argc] != NULL; *argc += 1) {
+	for (; (args + *argc) != NULL; *argc += 1) {
 		// Check that each argument is not an invalid pointer
-		error = as_valid_ptr((vaddr_t)args[*argc]);
+		error = as_valid_ptr((vaddr_t)(args + *argc));
 		if (error) {
 			return error;
+		}
+		paddr = PADDR_TO_KVADDR(pt_get_paddr(curthread->t_vmspace->as_pt,
+				(vaddr_t)(args + *argc), 1, 0)) & PAGE_FRAME;
+
+
+
+
+		if (*(char**)(paddr + (((u_int32_t)args + *argc*4) & 0xFFF)) == NULL) {
+			break;
 		}
 	}
 	// Return no errors

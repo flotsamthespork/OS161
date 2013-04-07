@@ -17,12 +17,14 @@
 #define PAGE_R_MASK 			(0x00000008)
 #define PAGE_X_MASK 			(0x00000010)
 
+#include <addrspace.h>
+
 struct pagetable {};
 
 struct pagetable *pt_create();
 void pt_destroy(struct pagetable *pt);
-int pt_define_region(struct pagetable *pt, vaddr_t vaddr, size_t size, int permissions);
 paddr_t pt_get_paddr(struct pagetable *pt, vaddr_t vaddr, int create, int permissions);
 int pt_set_permissions(struct pagetable *pt, vaddr_t vaddr, int create, int permissions);
+int pt_copy(struct pagetable *dst, struct addrspace *as);
 
 #endif

@@ -9,6 +9,7 @@
 #include <thread.h>
 #include <types.h>
 #include <uw-vmstats.h>
+#include <vnode.h>
 
 #include "opt-A3.h"
 
@@ -42,43 +43,30 @@ as_create(void)
 int
 as_copy(struct addrspace *old, struct addrspace **ret)
 {
-	// struct addrspace *new;
+	struct addrspace *new;
 
-	// new = as_create();
-	// if (new==NULL) {
-	// 	return ENOMEM;
-	// }
+	new = as_create();
+	if (new==NULL) {
+		return ENOMEM;
+	}
 
-	// // TODO start
-	// new->as_vbase1 = old->as_vbase1;
-	// new->as_npages1 = old->as_npages1;
-	// new->as_vbase2 = old->as_vbase2;
-	// new->as_npages2 = old->as_npages2;
+	if (pt_copy(new->as_pt, old)) {
+		as_destroy(new);
+		return ENOMEM;
+	}
 
-	// if (as_prepare_load(new)) {
-	// 	as_destroy(new);
-	// 	return ENOMEM;
-	// }
+	VOP_INCOPEN(old->as_v);
+	VOP_INCREF(old->as_v);
 
-	// assert(new->as_pbase1 != 0);
-	// assert(new->as_pbase2 != 0);
-	// assert(new->as_stackpbase != 0);
+	new->as_v = old->as_v;
 
-	// memmove((void *)PADDR_TO_KVADDR(new->as_pbase1),
-	// 	(const void *)PADDR_TO_KVADDR(old->as_pbase1),
-	// 	old->as_npages1*PAGE_SIZE);
-
-	// memmove((void *)PADDR_TO_KVADDR(new->as_pbase2),
-	// 	(const void *)PADDR_TO_KVADDR(old->as_pbase2),
-	// 	old->as_npages2*PAGE_SIZE);
-
-	// memmove((void *)PADDR_TO_KVADDR(new->as_stackpbase),
-	// 	(const void *)PADDR_TO_KVADDR(old->as_stackpbase),
-	// 	DUMBVM_STACKPAGES*PAGE_SIZE);
-
-	// // TODO end
+	// TODO - copy
+	new->as_region_count = old->as_region_count;
+	memmove((void *)&new->as_regions,
+		(const void *)(paddr_t)&old->as_regions,
+		(sizeof(struct region) * new->as_region_count));
 	
-	// *ret = new;
+	*ret = new;
 	return 0;
 }
 
@@ -157,14 +145,7 @@ as_define_region(struct addrspace *as, off_t offset,
 
 	as->as_region_count = nregions + 1;
 
-
-	// TODO - not do this.
-	// error = pt_define_region(pt, vaddr, memsize, permissions);
-	// if (error) {
-	// 	return EUNIMP;
-	// } else {
-		return 0;
-	// }
+	return 0;
 }
 
 
@@ -241,22 +222,34 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 
 int as_valid_ptr(vaddr_t ptr) {
 	// TODO
-
+	vaddr_t rbot, rtop;
 	paddr_t paddr;
 	struct addrspace *as;
-	int spl;
+	struct region *region;
+	int spl, i;
 
 	spl = splhigh();
 
-	ptr &= PAGE_FRAME;
-
 	as = curthread->t_vmspace;
+	(void)ptr;
 	if (as == NULL) {
 		splx(spl);
 		return EFAULT;
 	}
 
-	paddr = pt_get_paddr(as->as_pt, ptr, 0, 0);
+	// TODO - check regions
+
+	for (i = 0; i < as->as_region_count; i++) {
+		region = &as->as_regions[i];
+		rbot = region->vaddr;
+		rtop = rbot + region->memsize;
+		if (ptr < rtop && ptr >= rbot) {
+			splx(spl);
+			return 0;
+		}
+	}
+
+	paddr = pt_get_paddr(as->as_pt, ptr & PAGE_FRAME, 0, 0);
 
 	if (paddr & PAGE_FREE) {
 		splx(spl);

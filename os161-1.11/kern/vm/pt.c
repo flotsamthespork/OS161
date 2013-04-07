@@ -3,6 +3,7 @@
 #include <pt.h>
 #include <lib.h>
 #include <coremap.h>
+#include <addrspace.h>
 #include <kern/errno.h>
 
 #include <uw-vmstats.h>
@@ -185,23 +186,6 @@ void pt_destroy(struct pagetable *pt) {
 	free_kpages((vaddr_t)pt);
 }
 
-int pt_define_region(struct pagetable *pt, vaddr_t vaddr,
-					size_t size, int permissions) {
-	vaddr_t i, region_end;
-	struct pagetable *subpt;
-
-	region_end = vaddr + (vaddr_t) (size + PAGE_SIZE - 1);
-
-	for (i = vaddr; i < region_end; i += PAGE_SIZE) {
-		get_pagetable(pt, i, 1, permissions, &subpt);
-		if (subpt == NULL) {
-			return ENOMEM;
-		}
-	}
-
-	return 0;
-}
-
 paddr_t pt_get_paddr(struct pagetable *pt, vaddr_t vaddr,
 		int create, int permissions) {
 	int offset;
@@ -234,5 +218,87 @@ int pt_set_permissions(struct pagetable *pt, vaddr_t vaddr,
 			return 1;
 		}
 	}
+	return 0;
+}
+
+static int vaddr_overlap(vaddr_t l1, vaddr_t r1, vaddr_t l2, vaddr_t r2) {
+	//  |(l1)    |(l2)  |(r2)   |(r1)
+	if (r1 >= r2 && r2 >= l1) return 1;
+	//  |(l1)    |(l2)  |(r1)   |(r2)
+	if (l1 <= l2 && r1 > l2) return 1;
+	
+	return 0;
+}
+
+int pt_copy(struct pagetable *dst, struct addrspace *as) {
+	int idx_count = PAGE_SIZE/4;
+	int pt_idx1, pt_idx2, r_idx;
+	int value, in_region;
+	int state, permissions;
+	struct pagetable *pt1 = as->as_pt;
+	struct pagetable *pt2;
+	struct region *region;
+	vaddr_t vaddr, rbot, rtop;
+	paddr_t paddr1, paddr2;
+
+	for (pt_idx1 = 0; pt_idx1 < idx_count; pt_idx1++) {
+		value = get_value(pt1, pt_idx1);
+		state = get_page_state_by_value(value);
+		if (state != PAGE_FREE) {
+			vaddr = (vaddr_t)(pt_idx1 << (ADDR_UP_SHIFT));
+			permissions = value & (PAGE_W_MASK | PAGE_R_MASK | PAGE_X_MASK);
+
+			// If the page is in the swapfile we need it to be
+			// back in memory so we call get_pagetable with create
+			get_pagetable(pt1, vaddr, 1, permissions, &pt2);
+
+			for (pt_idx2 = 0; pt_idx2 < idx_count; pt_idx2++) {
+				value = get_value(pt2, pt_idx2);
+				state = get_page_state_by_value(value);
+
+				if (state != PAGE_FREE) {
+					vaddr = (vaddr_t)( (pt_idx1 << (ADDR_UP_SHIFT)) + (pt_idx2 << (ADDR_LOW_SHIFT)) );
+					permissions = value & (PAGE_W_MASK | PAGE_R_MASK | PAGE_X_MASK);
+					in_region = 0;
+
+					for (r_idx = 0; r_idx < as->as_region_count &&
+							!(permissions & PAGE_W_MASK); r_idx++) {
+						region = &as->as_regions[r_idx];
+						rbot = region->vaddr;
+						rtop = rbot + region->memsize;
+
+						if (vaddr_overlap(vaddr, vaddr+PAGE_SIZE,
+										rbot, rtop)) {
+							in_region = 1;
+							break;
+						}
+					}
+
+					// We don't want to copy memory that is contained
+					// within a defined region because it will be loaded
+					// properly on a vm_fault with permissions and
+					// everything set correctly.
+					if (!in_region) {
+						// TODO - force page to load with get_page
+						// TODO - copy the page
+
+						// Get the page and its physical address
+						get_page(pt2, pt_idx2, 1, &paddr1);
+
+						paddr2 = pt_get_paddr(dst, vaddr, 1, permissions);
+
+						paddr1 = PADDR_TO_KVADDR(paddr1) & PAGE_FRAME;
+						paddr2 = PADDR_TO_KVADDR(paddr2) & PAGE_FRAME;
+
+						memmove((void *)paddr2,
+								(const void *)paddr1, PAGE_SIZE);
+
+						paddr2 &= PAGE_FRAME;
+					}
+				}
+			}
+		}
+	}
+
 	return 0;
 }
