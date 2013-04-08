@@ -64,7 +64,7 @@ static int swapfile_getfreepage() {
 int swapfile_storepage(void *source) {
 	int index = swapfile_prepareswap();
 
-	swapfile_performswap(index, source);
+	swapfile_performkswap(index, source);
 
 	return index;
 }
@@ -87,7 +87,7 @@ int swapfile_prepareswap() {
 	return index;
 }
 
-void swapfile_performswap(int index, void *source) {
+void swapfile_performkswap(int index, void *source) {
 	lock_acquire(swapfile_lock);
 
 	DEBUG(DB_SWAPFILE, "Storing page at %x to swapfile page %d. %d of %d pages are in use.\n",
@@ -105,6 +105,34 @@ void swapfile_performswap(int index, void *source) {
 	operation.uio_segflg = UIO_SYSSPACE;
 	operation.uio_rw = UIO_WRITE;
 	operation.uio_space = NULL;
+
+	int err = VOP_WRITE(swapfile, &operation);
+	int length = operation.uio_offset - index * PAGE_SIZE;
+
+	assert(err == 0);
+	assert(length == PAGE_SIZE);
+
+	lock_release(swapfile_lock);
+}
+
+void swapfile_performswap(int index, struct addrspace *addrspace, vaddr_t vaddr) {
+	lock_acquire(swapfile_lock);
+
+	DEBUG(DB_SWAPFILE, "Storing page at %x in address space %s to swapfile page %d. %d of %d pages are in use.\n",
+			(unsigned int) vaddr, (unsigned int) addrspace, index, swapfile_pages_in_use, SWAPFILE_MAX_PAGES);
+
+	vmstats_inc(VMSTAT_SWAP_FILE_WRITE);
+
+	// construct a uio to handle the write
+	struct uio operation;
+	operation.uio_iovec.iov_ubase = vaddr;
+	operation.uio_iovec.iov_len = PAGE_SIZE;
+
+	operation.uio_offset = index * PAGE_SIZE;
+	operation.uio_resid = PAGE_SIZE;
+	operation.uio_segflg = UIO_USERSPACE;
+	operation.uio_rw = UIO_WRITE;
+	operation.uio_space = addrspace;
 
 	int err = VOP_WRITE(swapfile, &operation);
 	int length = operation.uio_offset - index * PAGE_SIZE;

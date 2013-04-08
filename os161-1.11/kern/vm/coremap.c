@@ -3,6 +3,7 @@
 #include <addrspace.h>
 #include <curthread.h>
 #include <lib.h>
+#include <swapfile.h>
 #include <synch.h>
 #include <thread.h>
 #include <vm.h>
@@ -141,6 +142,7 @@ paddr_t coremap_getpages(unsigned long npages) {
 		} else {
 			// we didn't find space so we need to do some swapping
 
+#if SWAPFILE_ENABLED
 			// we have no way of handling swapping blocks at this point
 			if (npages != 1) {
 				panic("Attempting to swap out multiple pages for an allocation, which we can't do!\n");
@@ -167,11 +169,14 @@ paddr_t coremap_getpages(unsigned long npages) {
 			// tell the page table that we've swapped the page out
 			pt_notify_of_swap(coremap[page].addrspace->as_pt, coremap[page].addr, index);
 
-			swapfile_performswap(index, page * PAGE_SIZE);
+			swapfile_performswap(index, coremap[page].addrspace, coremap[page].addr);
 
 			lock_acquire(coremap_lock);
 
 			paddr = (unsigned long) page * PAGE_SIZE;
+#else
+			paddr = (unsigned long) NULL;
+#endif
 		}
 
 		lock_release(coremap_lock);
@@ -244,6 +249,8 @@ void coremap_setpagefixed(paddr_t paddr, int fixed) {
 		DEBUG(DB_COREMAP, "Warning: paddr for coremap_setpagefixed is not page-aligned.\n");
 	}
 
+	lock_acquire(coremap_lock);
+
 	unsigned long page = paddr / PAGE_SIZE;
 
 	if (coremap[page].state != FREE) {
@@ -255,6 +262,8 @@ void coremap_setpagefixed(paddr_t paddr, int fixed) {
 	} else {
 		DEBUG(DB_COREMAP, "Warning: Attempting to set free page to be %s.\n", (fixed == 0 ? "swappable" : "fixed"));
 	}
+
+	lock_release(coremap_lock);
 }
 
 void coremap_getpagevaddr(paddr_t paddr, struct addrspace **addrspace, vaddr_t *vaddr) {
@@ -277,6 +286,8 @@ void coremap_setpagevaddr(paddr_t paddr, struct addrspace *addrspace, vaddr_t va
 		DEBUG(DB_COREMAP, "Warning: paddr for coremap_setpagevaddr is not page-aligned.\n");
 	}
 
+	lock_acquire(coremap_lock);
+
 	unsigned long page = paddr / PAGE_SIZE;
 
 	if (coremap[page].state != FREE) {
@@ -285,4 +296,6 @@ void coremap_setpagevaddr(paddr_t paddr, struct addrspace *addrspace, vaddr_t va
 	} else {
 		DEBUG(DB_COREMAP, "Warning: Attempting to get the vaddr of a free page.\n");
 	}
+
+	lock_release(coremap_lock);
 }

@@ -10,6 +10,9 @@ struct addrspace;
 #define SWAPFILE_MAX_SIZE (9 * 1024 * 1024)
 #define SWAPFILE_MAX_PAGES (SWAPFILE_MAX_SIZE / PAGE_SIZE)
 
+// flag to turn off broken swapping code if we don't get it working in time
+#define SWAPPING_ENABLED 0
+
 void swapfile_bootstrap();
 void swapfile_shutdown();
 
@@ -20,7 +23,8 @@ int swapfile_storepage(void *source);
 
 int swapfile_prepareswap();
 
-void swapfile_performswap(int index, void *source);
+void swapfile_performkswap(int index, void *source);
+void swapfile_performswap(int index, struct addrspace *addrspace, vaddr_t vaddr);
 
 /** Gets the given page from the swapfile and stores it in the destination
  * address. The entry from the swapfile is then cleared and reusable for
