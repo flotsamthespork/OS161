@@ -330,7 +330,7 @@ int pt_copy(struct pagetable *dst, struct addrspace *as) {
 }
 
 void pt_notify_of_swap(struct pagetable *pt, vaddr_t vaddr, int index) {
-	int offset, value;
+	u_int32_t offset, value;
 	paddr_t paddr;
 	struct pagetable *spt;
 
@@ -340,7 +340,9 @@ void pt_notify_of_swap(struct pagetable *pt, vaddr_t vaddr, int index) {
 			offset = get_offset(vaddr, ADDR_LOW_MASK, ADDR_LOW_SHIFT);
 			value = get_page(spt, offset, 1, vaddr, &paddr);
 			if (!value) {
-				value = (get_value(spt, offset) & PAGE_FRAME) & ~(PAGE_FREE | PAGE_IN_MEM);
+				value = get_value(spt, offset);
+				value = value & 0xFFF;
+				value = value & ~(PAGE_FREE | PAGE_IN_MEM);
 				value |= PAGE_IN_SWP;
 				set_value(spt, offset, value | (index << ADDR_LOW_SHIFT));
 				return;
@@ -350,7 +352,9 @@ void pt_notify_of_swap(struct pagetable *pt, vaddr_t vaddr, int index) {
 		get_pagetable(pt, vaddr, 1, 0, &spt);
 		if (spt != NULL) {
 			offset = get_offset(vaddr, ADDR_UP_MASK, ADDR_UP_SHIFT);
-			value = (get_value(pt, offset) & PAGE_FRAME) & ~(PAGE_FREE | PAGE_IN_MEM);
+			value = get_value(pt, offset);
+			value &= 0xFFF;
+			value &= ~(PAGE_FREE | PAGE_IN_MEM);
 			value |= PAGE_IN_SWP;
 			set_value(pt, offset, value | (index << ADDR_LOW_SHIFT));
 			return;

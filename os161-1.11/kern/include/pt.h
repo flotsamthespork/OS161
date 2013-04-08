@@ -9,7 +9,7 @@
 
 #define PAGE_FREE				(0x1)
 #define PAGE_IN_MEM 			(0x2)
-#define PAGE_IN_SWP				(0x4)
+#define PAGE_IN_SWP				(0x20)
 
 #define PAGE_FREE_MASK 			(0x00000001)
 #define PAGE_IN_MEM_MASK 		(0x00000002)

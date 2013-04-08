@@ -2,6 +2,4 @@ dir ../os161-1.11/kern/compile/ASST#/
 target remote unix:.sockets/gdb
 
 b panic
-break fork.c:142
-break fork.c:19
 c

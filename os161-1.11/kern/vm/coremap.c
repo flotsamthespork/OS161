@@ -167,9 +167,9 @@ paddr_t coremap_getpages(unsigned long npages) {
 			// tell the page table that we've swapped the page out
 			pt_notify_of_swap(coremap[page].addrspace->as_pt, coremap[page].addr, index);
 
-			lock_acquire(coremap_lock);
+			swapfile_performswap(index, page * PAGE_SIZE);
 
-			swapfile_performswap(index, PADDR_TO_KVADDR(1));
+			lock_acquire(coremap_lock);
 
 			paddr = (unsigned long) page * PAGE_SIZE;
 		}
