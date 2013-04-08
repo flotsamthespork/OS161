@@ -1,7 +1,10 @@
 #ifndef _SWAPFILE_H_
 #define _SWAPFILE_H_
 
+#include <types.h>
 #include <vm.h>
+
+struct addrspace;
 
 #define SWAPFILE_NAME "emu0:/swapfile"
 #define SWAPFILE_MAX_SIZE (9 * 1024 * 1024)
@@ -14,6 +17,10 @@ void swapfile_shutdown();
  * of the swapfile entry or -1 if there was no room in the swapfile.
  * The source address must be page-aligned. **/
 int swapfile_storepage(void *source);
+
+int swapfile_prepareswap();
+
+void swapfile_performswap(int index, void *source);
 
 /** Gets the given page from the swapfile and stores it in the destination
  * address. The entry from the swapfile is then cleared and reusable for

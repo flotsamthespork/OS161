@@ -1,5 +1,6 @@
 #include <coremap.h>
 
+#include <addrspace.h>
 #include <curthread.h>
 #include <lib.h>
 #include <synch.h>
@@ -7,8 +8,6 @@
 #include <vm.h>
 
 struct coremap_page *coremap;
-
-// TODO are these required outside this file?
 
 // a lock used while accessing the coremap
 static struct lock *coremap_lock;
@@ -61,8 +60,6 @@ void coremap_bootstrap() {
 }
 
 void coremap_shutdown() {
-	// TODO do we need to do anything to the coremap itself?
-
 	lock_destroy(coremap_lock);
 }
 
@@ -119,7 +116,6 @@ paddr_t coremap_getpages(unsigned long npages) {
 
 		if (page != -1) {
 			// we found space
-			// TODO are these being set correctly?
 			coremap[page].addr = (vaddr_t) NULL;
 			coremap[page].addrspace = (struct addrspace *) NULL;
 			coremap[page].page_count = npages;
@@ -140,8 +136,35 @@ paddr_t coremap_getpages(unsigned long npages) {
 
 			paddr = (unsigned long) page * PAGE_SIZE;
 		} else {
-			// we didn't find space
-			paddr = (paddr_t) NULL;
+			// we didn't find space so we need to do some swapping
+
+			// we have no way of handling swapping blocks at this point
+			if (npages != 1) {
+				panic("Attempting to swap out multiple pages for an allocation, which we can't do!\n");
+			}
+
+			// look for a page randomly which is:
+			//   not fixed (obviously)
+			//   allocated alone (because we have no way of swapping whole allocation blocks)
+			//   in an address space (because the page table will store that it was swapped in the first place)
+			//   has a virtual address (just a sanity check with the last one)
+			int page;
+
+			do {
+				page = random() % coremap_size;
+			} while (coremap[page].state == FIXED || coremap[page].page_count > 1 ||
+					coremap[page].addrspace == NULL || coremap[page].addr == NULL);
+
+			int index = swapfile_prepareswap();
+
+			DEBUG(DB_COREMAP, "Evicting page %d from the coremap and swapping to swapfile index %d.", page, index);
+
+			// tell the page table that we've swapped the page out
+			pt_notify_of_swap(coremap[page].addrspace->as_pt, coremap[page].addr, index);
+
+			swapfile_performswap(index, PADDR_TO_KVADDR(1));
+
+			paddr = (unsigned long) page * PAGE_SIZE;
 		}
 
 		lock_release(coremap_lock);

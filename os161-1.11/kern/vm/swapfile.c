@@ -1,9 +1,11 @@
 #include <swapfile.h>
 
+#include <addrspace.h>
 #include <kern/unistd.h>
 #include <lib.h>
 #include <synch.h>
 #include <uio.h>
+#include <uw-vmstats.h>
 #include <vfs.h>
 #include <vnode.h>
 
@@ -60,37 +62,57 @@ static int swapfile_getfreepage() {
 }
 
 int swapfile_storepage(void *source) {
+	int index = swapfile_prepareswap();
+
+	swapfile_performswap(index, source);
+
+	return index;
+}
+
+int swapfile_prepareswap() {
 	lock_acquire(swapfile_lock);
 
-	int page = swapfile_getfreepage();
+	int index = swapfile_getfreepage();
 
-	if (page == -1) panic("Out of swap space");
+	if (index == -1) {
+		panic("Out of swap space.");
+	}
+
+	swapfile_entries[index] = 1;
+
+	swapfile_pages_in_use += 1;
+
+	lock_release(swapfile_lock);
+
+	return index;
+}
+
+void swapfile_performswap(int index, void *source) {
+	lock_acquire(swapfile_lock);
 
 	DEBUG(DB_SWAPFILE, "Storing page at %x to swapfile page %d. %d of %d pages are in use.\n",
-			(unsigned int) source, page, swapfile_pages_in_use, SWAPFILE_MAX_PAGES);
+			(unsigned int) source, index, swapfile_pages_in_use, SWAPFILE_MAX_PAGES);
+
+	vmstats_inc(VMSTAT_SWAP_FILE_WRITE);
 
 	// construct a uio to handle the write
 	struct uio operation;
 	operation.uio_iovec.iov_kbase = source;
 	operation.uio_iovec.iov_len = PAGE_SIZE;
 
-	operation.uio_offset = page * PAGE_SIZE;
+	operation.uio_offset = index * PAGE_SIZE;
 	operation.uio_resid = PAGE_SIZE;
 	operation.uio_segflg = UIO_SYSSPACE;
 	operation.uio_rw = UIO_WRITE;
 	operation.uio_space = NULL;
 
 	int err = VOP_WRITE(swapfile, &operation);
-	int length = operation.uio_offset - page * PAGE_SIZE;
+	int length = operation.uio_offset - index * PAGE_SIZE;
 
 	assert(err == 0);
 	assert(length == PAGE_SIZE);
 
-	swapfile_entries[page] = 1;
-
 	lock_release(swapfile_lock);
-
-	return page;
 }
 
 int swapfile_getpage(int page, void *dest) {
