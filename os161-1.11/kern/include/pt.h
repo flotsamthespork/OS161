@@ -17,6 +17,9 @@
 #define PAGE_R_MASK 			(0x00000008)
 #define PAGE_X_MASK 			(0x00000010)
 
+#define SWP_PAGE				(0x1)
+#define SWP_TABLE				(0x2)
+
 #include <addrspace.h>
 
 struct pagetable {};

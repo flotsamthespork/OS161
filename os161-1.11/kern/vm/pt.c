@@ -313,14 +313,26 @@ void pt_notify_of_swap(struct pagetable *pt, vaddr_t vaddr, int index) {
 	paddr_t paddr;
 	struct pagetable *spt;
 
-	get_pagetable(pt, vaddr, 1, 0, &spt);
-	if (spt != NULL) {
-		offset = get_offset(vaddr, ADDR_LOW_MASK, ADDR_LOW_SHIFT);
-		value = get_page(spt, offset, create, &paddr);
-		if (!value) {
-			value = get_value(spt, offset) & PAGE_FRAME;
-			set_value(spt, offset, value | (index << ADDR_LOW_SHIFT));
-			return 1;
+	if (vaddr & SWP_PAGE) {
+		get_pagetable(pt, vaddr, 1, 0, &spt);
+		if (spt != NULL) {
+			offset = get_offset(vaddr, ADDR_LOW_MASK, ADDR_LOW_SHIFT);
+			value = get_page(spt, offset, 1, &paddr);
+			if (!value) {
+				value = get_value(spt, offset) & PAGE_FRAME;
+				set_value(spt, offset, value | (index << ADDR_LOW_SHIFT));
+				return;
+			}
 		}
+	} else if (vaddr & SWP_TABLE) {
+		get_pagetable(pt, vaddr, 1, 0, &spt);
+		if (spt != NULL) {
+			offset = get_offset(vaddr, ADDR_UP_MASK, ADDR_UP_SHIFT);
+			value = get_value(pt, offset) & PAGE_FRAME;
+			set_value(pt, offset, value | (index << ADDR_LOW_SHIFT));
+			return;
+		}
+	} else {
+		panic("STOP BEING A RETARD AND SET THE FLAGS PROPER.");
 	}
 }
