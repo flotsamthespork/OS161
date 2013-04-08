@@ -27,4 +27,6 @@ paddr_t pt_get_paddr(struct pagetable *pt, vaddr_t vaddr, int create, int permis
 int pt_set_permissions(struct pagetable *pt, vaddr_t vaddr, int create, int permissions);
 int pt_copy(struct pagetable *dst, struct addrspace *as);
 
+void pt_notify_of_swap(struct pagetable *pt, vaddr_t vaddr, int index);
+
 #endif

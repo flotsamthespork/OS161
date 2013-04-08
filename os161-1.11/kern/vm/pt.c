@@ -307,3 +307,7 @@ int pt_copy(struct pagetable *dst, struct addrspace *as) {
 
 	return 0;
 }
+
+void pt_notify_of_swap(struct pagetable *pt, vaddr_t vaddr, int index) {
+	// TOFU
+}
