@@ -4,18 +4,25 @@
 #include <lib.h>
 #include <coremap.h>
 #include <addrspace.h>
+#include <swapfile.h>
 #include <kern/errno.h>
+#include <thread.h>
+#include <curthread.h>
 
 #include <uw-vmstats.h>
 
 
 
-static struct pagetable *_pt_create(int permissions) {
+static struct pagetable *_pt_create(int permissions, vaddr_t vaddr) {
 	int i;
 	struct pagetable *pt = (struct pagetable*)alloc_kpages(1);
+	// TODO - FUCKING TIT SACKS
 	if (pt==NULL) {
 		return NULL;
 	}
+	vaddr &= PAGE_FRAME;
+	vaddr |= SWP_TABLE;
+	coremap_setpagevaddr((paddr_t)(pt)-0x80000000, curthread->t_vmspace, vaddr);
 
 	for (i = 0; i < PAGE_SIZE/4; i += 1) {
 		((int*)pt)[i] = PAGE_FREE_MASK | permissions;
@@ -25,12 +32,16 @@ static struct pagetable *_pt_create(int permissions) {
 }
 
 
-static paddr_t _pt_create_page() {
+static paddr_t _pt_create_page(vaddr_t vaddr) {
 	int i;
 	paddr_t paddr = (paddr_t)coremap_getpages(1);
+	// TODO - HJOLY FUCK ALSHLFKSAFHLKhj
 	if (paddr==(paddr_t)NULL) {
 		return (paddr_t)NULL;
 	}
+	vaddr &= PAGE_FRAME;
+	vaddr |= SWP_PAGE;
+	coremap_setpagevaddr(paddr, curthread->t_vmspace, vaddr);
 
 	// for (i = 0; i < PAGE_SIZE/4; i += 1) {
 	// 	((int*)paddr)[i] = 0;
@@ -88,13 +99,17 @@ static int get_pagetable(struct pagetable *pt,
 
 	if (state == PAGE_FREE) {
 		if (create) {
-			*dst = _pt_create(permissions);
+			*dst = _pt_create(permissions, vaddr);
 			set_value(pt, offset, ((int)*dst) | PAGE_IN_MEM_MASK);
 			return 0;
 		}
 	} else if (state == PAGE_IN_SWP) {
 		if (create) {
 			// TODO load from swap file
+			*dst = _pt_create(0, vaddr);
+			swapfile_getpage((value & PAGE_FRAME) >> ADDR_LOW_SHIFT, (void*)dst);
+			*dst = (struct pagetable*)((paddr_t)*dst | (paddr_t)(PAGE_IN_MEM | (value & (PAGE_R_MASK | PAGE_W_MASK | PAGE_X_MASK))));
+			set_value(pt, offset, ((int)*dst));
 			return 0;
 		}
 	} else {
@@ -106,7 +121,7 @@ static int get_pagetable(struct pagetable *pt,
 
 
 static int get_page(struct pagetable *pt,
-		int offset, int create, paddr_t *dst) {
+		int offset, int create, vaddr_t vaddr, paddr_t *dst) {
 	int value, state, permissions;
 
 	value = get_value(pt, offset);
@@ -118,7 +133,8 @@ static int get_page(struct pagetable *pt,
 		*dst = PAGE_FREE;
 		if (create) {
 			vmstats_inc(VMSTAT_PAGE_FAULT_ZERO);
-			*dst = _pt_create_page() | (paddr_t)(PAGE_IN_MEM_MASK | permissions);
+			*dst = _pt_create_page(vaddr) | (paddr_t)(PAGE_IN_MEM_MASK | permissions);
+			// TODO - set coremap vaddr
 			set_value(pt, offset, ((int)*dst));
 			return 0;
 		}
@@ -127,6 +143,11 @@ static int get_page(struct pagetable *pt,
 		if (create) {
 			vmstats_inc(VMSTAT_PAGE_FAULT_DISK);
 			// TODO - load from swap file
+			*dst = _pt_create_page(vaddr);
+			swapfile_getpage((value & PAGE_FRAME) >> ADDR_LOW_SHIFT, (void*)dst);
+			// TODO - set coremap vaddr
+			*dst = *dst | (paddr_t)(PAGE_IN_MEM_MASK | permissions);
+			set_value(pt, offset, ((int)*dst));
 			return 0;
 		}
 	} else {
@@ -174,7 +195,7 @@ static void destroy_nested_pagetable(int value) {
 
 
 struct pagetable *pt_create() {
-	struct pagetable *pt = _pt_create(0);
+	struct pagetable *pt = _pt_create(0, (vaddr_t)NULL);
 	coremap_setpagefixed((paddr_t)(pt)-0x80000000, 1);
 	return pt;
 }
@@ -199,7 +220,7 @@ paddr_t pt_get_paddr(struct pagetable *pt, vaddr_t vaddr,
 		return (paddr_t) PAGE_FREE;
 	} else {
 		offset = get_offset(vaddr, ADDR_LOW_MASK, ADDR_LOW_SHIFT);
-		get_page(spt, offset, create, &paddr);
+		get_page(spt, offset, create, vaddr, &paddr);
 		return paddr;
 	}
 }
@@ -213,7 +234,7 @@ int pt_set_permissions(struct pagetable *pt, vaddr_t vaddr,
 	get_pagetable(pt, vaddr, create, permissions, &spt);
 	if (spt != NULL) {
 		offset = get_offset(vaddr, ADDR_LOW_MASK, ADDR_LOW_SHIFT);
-		value = get_page(spt, offset, create, &paddr);
+		value = get_page(spt, offset, create, vaddr, &paddr);
 		if (!value) {
 			value = get_value(spt, offset) & ~(PAGE_R_MASK | PAGE_X_MASK | PAGE_W_MASK);
 			set_value(spt, offset, value | permissions);
@@ -285,7 +306,7 @@ int pt_copy(struct pagetable *dst, struct addrspace *as) {
 						// TODO - copy the page
 
 						// Get the page and its physical address
-						get_page(pt2, pt_idx2, 1, &paddr1);
+						get_page(pt2, pt_idx2, 1, vaddr, &paddr1);
 
 						coremap_setpagefixed(paddr1, 1);
 
@@ -317,7 +338,7 @@ void pt_notify_of_swap(struct pagetable *pt, vaddr_t vaddr, int index) {
 		get_pagetable(pt, vaddr, 1, 0, &spt);
 		if (spt != NULL) {
 			offset = get_offset(vaddr, ADDR_LOW_MASK, ADDR_LOW_SHIFT);
-			value = get_page(spt, offset, 1, &paddr);
+			value = get_page(spt, offset, 1, vaddr, &paddr);
 			if (!value) {
 				value = (get_value(spt, offset) & PAGE_FRAME) & ~(PAGE_FREE | PAGE_IN_MEM);
 				value |= PAGE_IN_SWP;
