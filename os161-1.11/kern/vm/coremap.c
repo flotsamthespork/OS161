@@ -106,6 +106,8 @@ paddr_t coremap_getpages(unsigned long npages) {
 		panic("Attempting to get 0 pages from the coremap.\n");
 	}
 
+	int spl = splhigh();
+
 	paddr_t paddr;
 
 	if (coremap_initialized) {
@@ -135,6 +137,7 @@ paddr_t coremap_getpages(unsigned long npages) {
 					coremap_pages_in_use, coremap_size, npages, page);
 
 			paddr = (unsigned long) page * PAGE_SIZE;
+
 		} else {
 			// we didn't find space so we need to do some swapping
 
@@ -159,8 +162,12 @@ paddr_t coremap_getpages(unsigned long npages) {
 
 			DEBUG(DB_COREMAP, "Evicting page %d from the coremap and swapping to swapfile index %d.", page, index);
 
+			lock_release(coremap_lock);
+
 			// tell the page table that we've swapped the page out
 			pt_notify_of_swap(coremap[page].addrspace->as_pt, coremap[page].addr, index);
+
+			lock_acquire(coremap_lock);
 
 			swapfile_performswap(index, PADDR_TO_KVADDR(1));
 
@@ -175,11 +182,15 @@ paddr_t coremap_getpages(unsigned long npages) {
 		paddr = ram_stealmem(npages);
 	}
 
+	splx(spl);
+
 	return paddr;
 }
 
 void coremap_freepages(paddr_t paddr) {
 	if (coremap_initialized) {
+		int spl = splhigh();
+
 		unsigned long page = paddr / PAGE_SIZE;
 
 		if (paddr % PAGE_SIZE != 0) {
@@ -211,6 +222,8 @@ void coremap_freepages(paddr_t paddr) {
 		}
 
 		lock_release(coremap_lock);
+
+		splx(spl);
 	} else {
 		panic("Trying to free 0x%x before the coremap is initialized.\n", paddr);
 	}
