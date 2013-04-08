@@ -175,6 +175,8 @@ paddr_t coremap_getpages(unsigned long npages) {
 
 			paddr = (unsigned long) page * PAGE_SIZE;
 #else
+			panic("Out of memory and we never got swapping working! Wee!\n");
+
 			paddr = (unsigned long) NULL;
 #endif
 		}
